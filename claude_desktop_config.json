@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:/PulseDispatch/SMSSending"
+      ]
+    },
+    "local-shell": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-shell"
+      ]
+    }
+  }
+}

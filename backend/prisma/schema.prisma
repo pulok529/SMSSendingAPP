@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CampaignChannel {
+  SMS
+  EMAIL
+}
+
+enum CampaignStatus {
+  DRAFT
+  QUEUED
+  SENDING
+  COMPLETED
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  SENDING
+  SENT
+  FAILED
+}
+
+enum DeviceStatus {
+  ONLINE
+  IDLE
+  OFFLINE
+}
+
+enum UserRole {
+  ADMIN
+  SENDER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @default("")
+  role         UserRole @default(SENDER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  devices      Device[]
+  events       Event[]
+  campaigns    Campaign[]
+}
+
+model Device {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceName  String
+  phoneNumber String
+  operator    String
+  status      DeviceStatus @default(OFFLINE)
+  queuedJobs  Int          @default(0)
+  battery     String?
+  lastSeenAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Customer {
+  id           String     @id @default(cuid())
+  name         String
+  company      String?
+  mobile       String?
+  email        String?    @unique
+  city         String?
+  tags         String[]
+  eventCount   Int        @default(0)
+  consentSms   Boolean    @default(false)
+  consentEmail Boolean    @default(false)
+  lastContact  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deliveries   Delivery[]
+}
+
+model Event {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  date         DateTime
+  venue        String
+  audience     String
+  smsTemplate  String
+  emailSubject String
+  status       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  campaigns    Campaign[]
+}
+
+model Campaign {
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId      String?
+  event        Event?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  name         String
+  channel      CampaignChannel
+  audienceSize Int
+  sentCount    Int             @default(0)
+  failedCount  Int             @default(0)
+  status       CampaignStatus  @default(DRAFT)
+  launchedAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deliveries   Delivery[]
+}
+
+model Delivery {
+  id          String         @id @default(cuid())
+  customerId  String
+  customer    Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  campaignId  String
+  campaign    Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  channel     CampaignChannel
+  status      DeliveryStatus @default(PENDING)
+  detail      String
+  timestamp   DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}

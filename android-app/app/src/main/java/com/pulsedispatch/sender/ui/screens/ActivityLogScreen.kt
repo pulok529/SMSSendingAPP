@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -70,6 +73,7 @@ import com.pulsedispatch.sender.ui.theme.WarningAmber
 import com.pulsedispatch.sender.ui.theme.WarningAmberBg
 import kotlin.math.ceil
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ActivityLogScreen(
     logs: List<ActivityLogItem>,
@@ -80,7 +84,7 @@ fun ActivityLogScreen(
     var filter by remember { mutableStateOf(ActivityLogFilter()) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var currentPage by remember { mutableIntStateOf(1) }
-    val pageSize = 15
+    val pageSize = 10
 
     if (showFilterSheet) {
         PulseFilterBottomSheet(
@@ -120,7 +124,11 @@ fun ActivityLogScreen(
             .fillMaxSize()
             .background(WarmCream)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+        ) {
             // Top Bar
             Surface(
                 modifier = Modifier
@@ -132,17 +140,15 @@ fun ActivityLogScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .clickable(onClick = onBack),
-                            contentAlignment = Alignment.Center
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,

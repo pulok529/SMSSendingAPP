@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -47,12 +50,19 @@ import com.pulsedispatch.sender.ui.components.SectionCard
 import com.pulsedispatch.sender.ui.theme.CardBorder
 import com.pulsedispatch.sender.ui.theme.CardWhite
 import com.pulsedispatch.sender.ui.theme.DarkBrown
+import com.pulsedispatch.sender.ui.theme.ErrorRed
+import com.pulsedispatch.sender.ui.theme.ErrorRedBg
+import com.pulsedispatch.sender.ui.theme.InfoBlue
+import com.pulsedispatch.sender.ui.theme.InfoBlueBg
 import com.pulsedispatch.sender.ui.theme.MutedBrown
 import com.pulsedispatch.sender.ui.theme.OrangeLight
 import com.pulsedispatch.sender.ui.theme.OrangePrimary
+import com.pulsedispatch.sender.ui.theme.OrangeSecondary
 import com.pulsedispatch.sender.ui.theme.SuccessGreen
 import com.pulsedispatch.sender.ui.theme.SuccessGreenBg
 import com.pulsedispatch.sender.ui.theme.WarmCream
+import com.pulsedispatch.sender.ui.theme.WarningAmber
+import com.pulsedispatch.sender.ui.theme.WarningAmberBg
 import java.util.UUID
 
 @Composable
@@ -68,12 +78,19 @@ fun SupportTicketScreen(
     var description by remember { mutableStateOf("") }
     var submitSuccess by remember { mutableStateOf(false) }
 
+    val categories = listOf("Connection Issue", "SMS Dispatch", "Account & Setup", "Billing", "Other")
+    val priorities = listOf("Low", "Medium", "High")
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(WarmCream)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+        ) {
             // Top Bar
             Surface(
                 modifier = Modifier
@@ -85,15 +102,13 @@ fun SupportTicketScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onBack),
-                        contentAlignment = Alignment.Center
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,

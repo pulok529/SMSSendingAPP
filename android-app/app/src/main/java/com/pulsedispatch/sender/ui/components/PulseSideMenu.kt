@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +33,6 @@ import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +63,7 @@ import com.pulsedispatch.sender.ui.theme.MutedBrown
 import com.pulsedispatch.sender.ui.theme.OrangeGradient
 import com.pulsedispatch.sender.ui.theme.OrangeLight
 import com.pulsedispatch.sender.ui.theme.OrangePrimary
+import com.pulsedispatch.sender.ui.theme.WarmCream
 
 @Composable
 fun PulseSideMenu(
@@ -70,15 +72,27 @@ fun PulseSideMenu(
     pendingJobsCount: Int,
     onNavigate: (AppScreen) -> Unit,
     onLogout: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Confirm Logout", fontWeight = FontWeight.Bold, color = DarkBrown) },
-            text = { Text("Are you sure you want to log out of Pulse Sender?", color = MutedBrown) },
+            title = {
+                Text(
+                    text = "Confirm Logout",
+                    fontWeight = FontWeight.Bold,
+                    color = DarkBrown
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to log out of Pulse Sender?",
+                    color = DarkBrown
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -86,12 +100,20 @@ fun PulseSideMenu(
                         onLogout()
                     }
                 ) {
-                    Text("Logout", color = ErrorRed, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "Logout",
+                        color = ErrorRed,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel", color = DarkBrown)
+                    Text(
+                        text = "Cancel",
+                        color = DarkBrown,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             },
             containerColor = CardWhite,
@@ -124,7 +146,7 @@ fun PulseSideMenu(
                 Surface(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .fillMaxWidth(0.72f)
+                        .fillMaxWidth(0.75f)
                         .shadow(24.dp, RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)),
                     shape = RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp),
                     color = CardWhite
@@ -132,68 +154,76 @@ fun PulseSideMenu(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 40.dp, bottom = 24.dp, start = 20.dp, end = 20.dp)
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .padding(top = 16.dp, bottom = 20.dp, start = 20.dp, end = 20.dp)
                     ) {
                         // User Profile Header
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onNavigate(AppScreen.PROFILE)
-                                    onClose()
-                                }
-                                .padding(vertical = 8.dp)
+                        Surface(
+                            onClick = {
+                                onNavigate(AppScreen.PROFILE)
+                                onClose()
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color.Transparent,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            // Avatar circle with initials
-                            Box(
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .size(54.dp)
-                                    .clip(CircleShape)
-                                    .background(OrangeGradient),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 4.dp)
                             ) {
-                                Text(
-                                    text = userProfile.avatarInitials,
-                                    color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Avatar circle with initials
+                                Box(
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .clip(CircleShape)
+                                        .background(OrangeGradient),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(
-                                        text = userProfile.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = DarkBrown,
+                                        text = userProfile.avatarInitials,
+                                        color = Color.White,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = userProfile.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = DarkBrown,
+                                            maxLines = 1
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(OrangeLight)
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = userProfile.role,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = OrangePrimary
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = userProfile.email,
+                                        fontSize = 12.sp,
+                                        color = MutedBrown,
                                         maxLines = 1
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .background(OrangeLight)
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = userProfile.role,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = OrangePrimary
-                                        )
-                                    }
                                 }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = userProfile.email,
-                                    fontSize = 12.sp,
-                                    color = MutedBrown,
-                                    maxLines = 1
-                                )
                             }
                         }
 

@@ -109,40 +109,50 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(isSideMenuOpen = false)
     }
 
-    // --- Authentication ---
+    // --- Web App API Authentication ---
 
-    fun login(email: String, pass: String) {
+    fun login(email: String, pass: String, serverUrl: String? = null) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(loginLoading = true, loginError = null)
             try {
-                // Attempt backend login
-                try {
-                    val res = repository.login(_uiState.value.config.baseUrl, LoginRequest(email, pass))
-                    val updatedProfile = _uiState.value.profile.copy(
-                        name = res.user.name,
-                        email = res.user.email,
-                        role = res.user.role.uppercase()
-                    )
-                    repository.saveProfile(updatedProfile)
-                    _uiState.value = _uiState.value.copy(profile = updatedProfile)
-                } catch (_: Exception) {
-                    // If login endpoint isn't seeded with custom credentials, allow default login
-                    if (email.contains("@") && pass.length >= 4) {
-                        val updatedProfile = _uiState.value.profile.copy(email = email)
-                        repository.saveProfile(updatedProfile)
-                    } else {
-                        throw Exception("Invalid credentials. Please enter a valid email and password.")
-                    }
-                }
+                val urlToUse = serverUrl?.trim()?.ifBlank { null } ?: _uiState.value.config.baseUrl
+                val updatedConfig = _uiState.value.config.copy(baseUrl = urlToUse, email = email)
+                repository.saveConfig(updatedConfig)
+                _uiState.value = _uiState.value.copy(config = updatedConfig)
 
+                // 1. Authenticate with Web App API
+                val res = repository.login(urlToUse, LoginRequest(email = email.trim(), password = pass))
+                repository.saveAuthToken(res.token)
+
+                // 2. Extract profile details returned by API
+                val nameInitials = res.user.name.split(" ")
+                    .filter { it.isNotBlank() }
+                    .take(2)
+                    .map { it.first().uppercase() }
+                    .joinToString("")
+                    .ifEmpty { "PA" }
+
+                val updatedProfile = _uiState.value.profile.copy(
+                    id = res.user.id,
+                    name = res.user.name,
+                    email = res.user.email,
+                    role = res.user.role.uppercase(),
+                    avatarInitials = nameInitials
+                )
+                repository.saveProfile(updatedProfile)
                 repository.setLoggedIn(true)
+
                 _uiState.value = _uiState.value.copy(
+                    profile = updatedProfile,
                     isLoggedIn = true,
                     loginLoading = false,
+                    loginError = null,
                     currentScreen = AppScreen.DASHBOARD
                 )
 
-                appendLog(LogType.SUCCESS, "User Signed In", "Logged in as ${_uiState.value.profile.name}")
+                appendLog(LogType.SUCCESS, "Web App API Login", "Authenticated as ${res.user.name} (${res.user.email})")
+
+                // 3. Register device and sync with Web App Gateway
                 refreshConnection()
                 startBackgroundServiceIfEnabled()
                 startAutomationLoops()
@@ -151,13 +161,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     loginLoading = false,
                     loginError = e.message ?: "Authentication failed."
                 )
-                appendLog(LogType.ERROR, "Login Failed", e.message ?: "Unknown error")
+                appendLog(LogType.ERROR, "Login Failed", e.message ?: "Unknown authentication error")
             }
         }
     }
 
     fun logout() {
         repository.setLoggedIn(false)
+        repository.saveAuthToken(null)
         _uiState.value = _uiState.value.copy(
             isLoggedIn = false,
             currentScreen = AppScreen.LOGIN,

@@ -86,9 +86,10 @@ class MainActivity : ComponentActivity() {
                         when (screen) {
                             AppScreen.LOGIN -> LoginScreen(
                                 initialEmail = uiState.config.email,
+                                initialServerUrl = uiState.config.baseUrl,
                                 isLoading = uiState.loginLoading,
                                 errorMessage = uiState.loginError,
-                                onLogin = { email, pass -> viewModel.login(email, pass) }
+                                onLogin = { email, pass, serverUrl -> viewModel.login(email, pass, serverUrl) }
                             )
 
                             AppScreen.DASHBOARD -> DashboardScreen(

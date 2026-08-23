@@ -7,7 +7,10 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.HttpException
 import retrofit2.Retrofit
+import java.net.ConnectException
+import java.net.SocketTimeoutException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,6 +35,12 @@ class AppRepository(context: Context) {
         prefs.edit().putBoolean("is_logged_in", loggedIn).apply()
     }
 
+    fun saveAuthToken(token: String?) {
+        prefs.edit().putString("auth_token", token).apply()
+    }
+
+    fun getAuthToken(): String? = prefs.getString("auth_token", null)
+
     fun loadProfile(): UserProfile {
         val name = prefs.getString("profile_name", "Pulak Ahmed").orEmpty()
         val email = prefs.getString("profile_email", "pulak@example.com").orEmpty()
@@ -39,7 +48,7 @@ class AppRepository(context: Context) {
         val phone = prefs.getString("profile_phone", "+880 1711-123456").orEmpty()
         val gender = prefs.getString("profile_gender", "Male").orEmpty()
         val address = prefs.getString("profile_address", "Dhaka, Bangladesh").orEmpty()
-        val role = prefs.getString("profile_role", "PRO").orEmpty()
+        val role = prefs.getString("profile_role", "ADMIN").orEmpty()
 
         val initials = name.split(" ")
             .filter { it.isNotBlank() }
@@ -161,6 +170,16 @@ class AppRepository(context: Context) {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val original = chain.request()
+                val builder = original.newBuilder()
+                val token = getAuthToken()
+                if (!token.isNullOrBlank()) {
+                    builder.addHeader("Authorization", "Bearer $token")
+                    builder.addHeader("Cookie", "pulse_auth_token=$token")
+                }
+                chain.proceed(builder.build())
+            }
             .addInterceptor(logger)
             .build()
 
@@ -174,8 +193,26 @@ class AppRepository(context: Context) {
             .create(MobileApi::class.java)
     }
 
-    suspend fun login(baseUrl: String, request: LoginRequest): LoginResponse =
-        api(baseUrl).login(request)
+    suspend fun login(baseUrl: String, request: LoginRequest): LoginResponse {
+        try {
+            return api(baseUrl).login(request)
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val message = if (!errorBody.isNullOrBlank()) {
+                try {
+                    val parsed = json.decodeFromString<ApiErrorResponse>(errorBody)
+                    parsed.error
+                } catch (_: Exception) {
+                    null
+                }
+            } else null
+            throw Exception(message ?: "Invalid email or password.")
+        } catch (e: ConnectException) {
+            throw Exception("Unable to reach API server at $baseUrl. Check network connection.")
+        } catch (e: SocketTimeoutException) {
+            throw Exception("Connection timed out reaching API server at $baseUrl.")
+        }
+    }
 
     suspend fun register(config: DeviceConfig): RegisterResponse =
         api(config.baseUrl).register(

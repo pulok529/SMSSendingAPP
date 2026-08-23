@@ -90,7 +90,13 @@ data class LoginRequest(
 
 @Serializable
 data class LoginResponse(
-    val user: UserDto
+    val user: UserDto,
+    val token: String? = null
+)
+
+@Serializable
+data class ApiErrorResponse(
+    val error: String? = null
 )
 
 @Serializable

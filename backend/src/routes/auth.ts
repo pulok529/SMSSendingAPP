@@ -47,6 +47,7 @@ authRouter.post("/login", async (request, response, next) => {
 
     response.setHeader("Set-Cookie", sessionCookie(token));
     response.json({
+      token,
       user: {
         id: user.id,
         name: user.name,

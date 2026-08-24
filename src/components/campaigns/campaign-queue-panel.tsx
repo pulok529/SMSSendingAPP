@@ -1,237 +1,107 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "@/components/ui/dashboard.module.css";
-import { templates } from "@/lib/mock-data";
+import { StatusChip } from "@/components/ui/status-chip";
+import { RefreshCw, Smartphone, CheckCircle2 } from "lucide-react";
 
-type ApiCampaign = {
+type QueueJob = {
   id: string;
-  name: string;
-  channel: string;
-  audienceSize: number;
-  sentCount: number;
-  failedCount: number;
+  phoneNumber: string;
+  customerName: string;
+  campaignName: string;
+  message: string;
   status: string;
-  event?: {
-    smsTemplate?: string | null;
-  } | null;
 };
-
-type CampaignsResponse = {
-  campaigns: ApiCampaign[];
-};
-
-type QueueResponse = {
-  ok?: boolean;
-  queued?: number;
-  error?: string;
-};
-
-const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
-  "http://localhost:4000";
 
 export function CampaignQueuePanel() {
-  const [campaigns, setCampaigns] = useState<ApiCampaign[]>([]);
-  const [selectedCampaignId, setSelectedCampaignId] = useState("");
-  const [message, setMessage] = useState(templates[0]?.body ?? "");
-  const [notice, setNotice] = useState("Loading campaigns from the API...");
-  const [isBusy, setIsBusy] = useState(false);
+  const [jobs, setJobs] = useState<QueueJob[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchJobs = async () => {
+    try {
+      const res = await fetch("/api/mobile/jobs");
+      if (res.ok) {
+        const data = await res.json();
+        setJobs(data.jobs || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch pending jobs", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isCurrent = true;
-
-    async function loadCampaigns() {
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/campaigns`, {
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          throw new Error(`API returned ${response.status}`);
-        }
-
-        const data = (await response.json()) as CampaignsResponse;
-
-        if (!isCurrent) {
-          return;
-        }
-
-        setCampaigns(data.campaigns);
-
-        const firstCampaign = data.campaigns[0];
-        if (firstCampaign) {
-          setSelectedCampaignId(firstCampaign.id);
-          setMessage(firstCampaign.event?.smsTemplate ?? templates[0]?.body ?? "");
-          setNotice(`${data.campaigns.length} campaign record(s) loaded.`);
-        } else {
-          setNotice("No campaign records found. Seed the database first.");
-        }
-      } catch (error) {
-        if (!isCurrent) {
-          return;
-        }
-
-        setNotice(
-          error instanceof Error
-            ? `Could not load campaigns: ${error.message}`
-            : "Could not load campaigns."
-        );
-      }
-    }
-
-    loadCampaigns();
-
-    return () => {
-      isCurrent = false;
-    };
+    fetchJobs();
+    const interval = setInterval(fetchJobs, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  const selectedCampaign = useMemo(
-    () => campaigns.find((campaign) => campaign.id === selectedCampaignId),
-    [campaigns, selectedCampaignId]
-  );
-
-  async function queueCampaign() {
-    if (!selectedCampaignId) {
-      setNotice("Choose a campaign before queueing SMS jobs.");
-      return;
-    }
-
-    setIsBusy(true);
-    setNotice("Queueing SMS jobs...");
-
-    try {
-      const response = await fetch(
-        `${apiBaseUrl}/api/campaigns/${selectedCampaignId}/queue-sms`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message,
-            limit: 100,
-          }),
-        }
-      );
-      const data = (await response.json()) as QueueResponse;
-
-      if (!response.ok) {
-        throw new Error(data.error ?? `API returned ${response.status}`);
-      }
-
-      setNotice(
-        `Queued ${data.queued ?? 0} SMS job(s) for Android pickup.`
-      );
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? `Queue failed: ${error.message}`
-          : "Queue failed."
-      );
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
   return (
-    <article className={styles.panel}>
+    <section className={styles.panel} style={{ marginTop: "24px" }}>
       <div className={styles.panelHeader}>
         <div>
-          <h2 className={styles.panelTitle}>Build a campaign</h2>
+          <h2 className={styles.panelTitle}>Live Android SIM Dispatch Queue</h2>
           <p className={styles.panelText}>
-            Queue SMS deliveries into the backend so the Android sender can pick
-            them up from the mobile job API.
+            Real-time queue of outgoing SMS jobs waiting for your linked Android phone to dispatch.
           </p>
         </div>
-        <span className={styles.badge}>Live API</span>
-      </div>
-
-      <div className={styles.formGrid}>
-        <label className={styles.label}>
-          Campaign
-          <select
-            className={styles.field}
-            value={selectedCampaignId}
-            onChange={(event) => {
-              const campaign = campaigns.find(
-                (item) => item.id === event.target.value
-              );
-              setSelectedCampaignId(event.target.value);
-              setMessage(campaign?.event?.smsTemplate ?? message);
-            }}
-          >
-            <option value="">Select a campaign</option>
-            {campaigns.map((campaign) => (
-              <option key={campaign.id} value={campaign.id}>
-                {campaign.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.label}>
-          Channel
-          <select className={styles.field} value="SMS" disabled>
-            <option>SMS</option>
-          </select>
-        </label>
-        <label className={styles.label}>
-          Audience
-          <input
-            className={styles.field}
-            value="All SMS-consented customers without this campaign delivery"
-            readOnly
-          />
-        </label>
-        <label className={styles.label}>
-          Template
-          <select
-            className={styles.field}
-            defaultValue={templates[0]?.name}
-            onChange={(event) => {
-              const template = templates.find(
-                (item) => item.name === event.target.value
-              );
-              setMessage(template?.body ?? message);
-            }}
-          >
-            {templates
-              .filter((template) => template.channel === "SMS")
-              .map((template) => (
-                <option key={template.id}>{template.name}</option>
-              ))}
-          </select>
-        </label>
-      </div>
-
-      <label className={styles.label} style={{ marginTop: 16 }}>
-        SMS content
-        <textarea
-          className={styles.textarea}
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-        />
-      </label>
-
-      <div className={styles.previewBox} style={{ marginTop: 16 }}>
-        <strong>Selected campaign:</strong>{" "}
-        {selectedCampaign?.name ?? "No campaign selected"}
-        <br />
-        <strong>Status:</strong> {notice}
-      </div>
-
-      <div className={styles.buttonRow} style={{ marginTop: 16 }}>
         <button
-          className={styles.buttonPrimary}
-          disabled={isBusy || !selectedCampaignId}
-          onClick={queueCampaign}
-          type="button"
+          onClick={fetchJobs}
+          className={styles.secondaryButton}
+          style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
         >
-          {isBusy ? "Queueing..." : "Queue campaign"}
+          <RefreshCw size={14} />
+          Refresh Queue
         </button>
       </div>
-    </article>
+
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Phone Number</th>
+              <th>Campaign</th>
+              <th>Message Preview</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {jobs.length > 0 ? (
+              jobs.map((job) => (
+                <tr key={job.id}>
+                  <td>
+                    <strong>{job.customerName}</strong>
+                  </td>
+                  <td>{job.phoneNumber}</td>
+                  <td>{job.campaignName}</td>
+                  <td style={{ maxWidth: "320px" }}>
+                    <span style={{ fontSize: "13px", color: "#22150E" }}>{job.message}</span>
+                  </td>
+                  <td>
+                    <StatusChip status={job.status} />
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} style={{ textAlign: "center", padding: "32px 0", color: "#8E7F75" }}>
+                  {loading ? (
+                    "Loading live queue..."
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", color: "#15803D", fontWeight: 600 }}>
+                      <CheckCircle2 size={18} />
+                      Queue is clear. All SMS jobs have been dispatched by your Android phone!
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

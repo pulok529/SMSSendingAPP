@@ -1,15 +1,109 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import styles from "@/components/ui/dashboard.module.css";
 import { StatusChip } from "@/components/ui/status-chip";
-import {
-  campaigns,
-  customers,
-  dashboardStats,
-  deliveryLogs,
-  deviceStatus,
-  events,
-} from "@/lib/mock-data";
+import Link from "next/link";
+
+type DashboardSummary = {
+  stats: Array<{ label: string; value: string; note: string }>;
+  counts: {
+    customers: number;
+    smsReady: number;
+    emailReady: number;
+    campaigns: number;
+    activeCampaigns: number;
+    deliveriesSent: number;
+    deliveriesFailed: number;
+  };
+  activeCampaigns: Array<{
+    id: string;
+    name: string;
+    channel: string;
+    audienceSize: number;
+    sentCount: number;
+    failedCount: number;
+    status: string;
+  }>;
+  recentDeliveries: Array<{
+    id: string;
+    detail: string;
+    status: string;
+    timestamp: string;
+    customer: { name: string; mobile?: string };
+    campaign: { name: string };
+  }>;
+  upcomingEvents: Array<{
+    id: string;
+    title: string;
+    date: string;
+    venue: string;
+    audience: string;
+    status: string;
+  }>;
+  device: {
+    deviceName: string;
+    phoneNumber: string;
+    operator: string;
+    battery?: string;
+    status: string;
+    queuedJobs: number;
+  } | null;
+};
+
+type CustomerRecord = {
+  id: string;
+  name: string;
+  company?: string;
+  mobile?: string;
+  email?: string;
+  tags: string[];
+  consentSms: boolean;
+  consentEmail: boolean;
+  lastContact?: string;
+};
 
 export default function DashboardPage() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [customers, setCustomers] = useState<CustomerRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [sumRes, custRes] = await Promise.all([
+          fetch("/api/dashboard/summary"),
+          fetch("/api/customers"),
+        ]);
+
+        if (sumRes.ok) {
+          const sumData = await sumRes.json();
+          setSummary(sumData);
+        }
+
+        if (custRes.ok) {
+          const custData = await custRes.json();
+          setCustomers(custData.customers || []);
+        }
+      } catch (e) {
+        console.error("Failed to load dashboard data", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  const stats = summary?.stats || [
+    { label: "Ready to send", value: "0 SMS", note: "Consented mobile contacts" },
+    { label: "Active campaigns", value: "0 live", note: "0 total campaigns" },
+    { label: "Delivered Messages", value: "0", note: "100% success rate" },
+    { label: "Linked Android Senders", value: "Offline", note: "Ready to pair" },
+  ];
+
+  const device = summary?.device;
+
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -19,15 +113,14 @@ export default function DashboardPage() {
           dispatch.
         </h2>
         <p className={styles.heroText}>
-          The web app is now shaped around your workflow: bring customer records
-          in through Excel, review the list, create event campaigns, then send
-          bulk SMS from your linked Android phone while email sends remain
-          tracked in the same control panel.
+          The web app is connected directly to your database and companion Android
+          phone: import customer spreadsheets, schedule event campaigns, and dispatch
+          bulk SMS seamlessly through your device SIM.
         </p>
       </section>
 
       <section className={styles.statsGrid}>
-        {dashboardStats.map((stat) => (
+        {stats.map((stat) => (
           <article key={stat.label} className={styles.statCard}>
             <div className={styles.statLabel}>{stat.label}</div>
             <div className={styles.statValue}>{stat.value}</div>
@@ -59,23 +152,31 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {campaigns.map((campaign) => (
-                  <tr key={campaign.id}>
-                    <td>
-                      <div className={styles.rowMeta}>
-                        <strong>{campaign.name}</strong>
-                        <span className={styles.rowSubtle}>
-                          {campaign.sent} sent, {campaign.failed} failed
-                        </span>
-                      </div>
-                    </td>
-                    <td>{campaign.channel}</td>
-                    <td>{campaign.audienceSize}</td>
-                    <td>
-                      <StatusChip status={campaign.status} />
+                {summary?.activeCampaigns && summary.activeCampaigns.length > 0 ? (
+                  summary.activeCampaigns.map((campaign) => (
+                    <tr key={campaign.id}>
+                      <td>
+                        <div className={styles.rowMeta}>
+                          <strong>{campaign.name}</strong>
+                          <span className={styles.rowSubtle}>
+                            {campaign.sentCount} sent, {campaign.failedCount} failed
+                          </span>
+                        </div>
+                      </td>
+                      <td>{campaign.channel}</td>
+                      <td>{campaign.audienceSize}</td>
+                      <td>
+                        <StatusChip status={campaign.status} />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "center", padding: "24px 0", color: "#8E7F75" }}>
+                      {loading ? "Loading campaigns..." : "No campaigns created yet. Click 'Create Campaign' to begin."}
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -89,28 +190,28 @@ export default function DashboardPage() {
                 This is the device the web app will target for SMS dispatch.
               </p>
             </div>
-            <StatusChip status={deviceStatus.status} />
+            <StatusChip status={device?.status || "OFFLINE"} />
           </div>
 
           <div className={styles.metricRow}>
             <span className={styles.metricLabel}>Device</span>
-            <strong className={styles.metricValue}>{deviceStatus.deviceName}</strong>
+            <strong className={styles.metricValue}>{device?.deviceName || "No Android Phone Registered"}</strong>
           </div>
           <div className={styles.metricRow}>
             <span className={styles.metricLabel}>Phone number</span>
-            <strong className={styles.metricValue}>{deviceStatus.phoneNumber}</strong>
+            <strong className={styles.metricValue}>{device?.phoneNumber || "—"}</strong>
           </div>
           <div className={styles.metricRow}>
             <span className={styles.metricLabel}>Operator</span>
-            <strong className={styles.metricValue}>{deviceStatus.operator}</strong>
+            <strong className={styles.metricValue}>{device?.operator || "—"}</strong>
           </div>
           <div className={styles.metricRow}>
             <span className={styles.metricLabel}>Battery</span>
-            <strong className={styles.metricValue}>{deviceStatus.battery}</strong>
+            <strong className={styles.metricValue}>{device?.battery || "N/A"}</strong>
           </div>
           <div className={styles.metricRow}>
             <span className={styles.metricLabel}>Queued jobs</span>
-            <strong className={styles.metricValue}>{deviceStatus.queuedJobs}</strong>
+            <strong className={styles.metricValue}>{device?.queuedJobs || 0}</strong>
           </div>
         </article>
       </section>
@@ -121,25 +222,31 @@ export default function DashboardPage() {
             <div>
               <h2 className={styles.panelTitle}>Upcoming events</h2>
               <p className={styles.panelText}>
-                Event records already shaped for SMS and email campaigns.
+                Event records shaped for SMS and email campaigns.
               </p>
             </div>
-            <span className={styles.badge}>{events.length} event records</span>
+            <span className={styles.badge}>{summary?.upcomingEvents?.length || 0} scheduled</span>
           </div>
           <div className={styles.splitList}>
-            {events.map((event) => (
-              <div key={event.id} className={styles.splitItem}>
-                <div className={styles.panelHeader} style={{ marginBottom: 0 }}>
-                  <div>
-                    <div className={styles.splitTitle}>{event.title}</div>
-                    <p className={styles.splitText}>
-                      {event.date} at {event.venue} for {event.audience}.
-                    </p>
+            {summary?.upcomingEvents && summary.upcomingEvents.length > 0 ? (
+              summary.upcomingEvents.map((event) => (
+                <div key={event.id} className={styles.splitItem}>
+                  <div className={styles.panelHeader} style={{ marginBottom: 0 }}>
+                    <div>
+                      <div className={styles.splitTitle}>{event.title}</div>
+                      <p className={styles.splitText}>
+                        {new Date(event.date).toLocaleDateString()} at {event.venue} for {event.audience}.
+                      </p>
+                    </div>
+                    <StatusChip status={event.status} />
                   </div>
-                  <StatusChip status={event.status} />
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p style={{ padding: "16px 0", color: "#8E7F75" }}>
+                {loading ? "Loading events..." : "No events scheduled yet. Create an event in the Events menu."}
+              </p>
+            )}
           </div>
         </article>
 
@@ -153,21 +260,27 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className={styles.splitList}>
-            {deliveryLogs.map((log) => (
-              <div key={log.id} className={styles.splitItem}>
-                <div className={styles.panelHeader} style={{ marginBottom: 0 }}>
-                  <div>
-                    <div className={styles.splitTitle}>
-                      {log.customer} · {log.campaign}
+            {summary?.recentDeliveries && summary.recentDeliveries.length > 0 ? (
+              summary.recentDeliveries.map((log) => (
+                <div key={log.id} className={styles.splitItem}>
+                  <div className={styles.panelHeader} style={{ marginBottom: 0 }}>
+                    <div>
+                      <div className={styles.splitTitle}>
+                        {log.customer?.name || "Recipient"} · {log.campaign?.name || "Broadcast"}
+                      </div>
+                      <p className={styles.splitText}>
+                        {new Date(log.timestamp).toLocaleTimeString()} · {log.detail}
+                      </p>
                     </div>
-                    <p className={styles.splitText}>
-                      {log.timestamp} · {log.detail}
-                    </p>
+                    <StatusChip status={log.status} />
                   </div>
-                  <StatusChip status={log.status} />
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p style={{ padding: "16px 0", color: "#8E7F75" }}>
+                {loading ? "Loading activity..." : "No delivery activity recorded yet."}
+              </p>
+            )}
           </div>
         </article>
       </section>
@@ -175,12 +288,14 @@ export default function DashboardPage() {
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <h2 className={styles.panelTitle}>High-value customers</h2>
+            <h2 className={styles.panelTitle}>Customer contacts</h2>
             <p className={styles.panelText}>
-              A sample of the records you&apos;ll use for bulk event communication.
+              Your live directory of customers for bulk event communication.
             </p>
           </div>
-          <span className={styles.badge}>{customers.length} loaded in demo</span>
+          <Link href="/customers" className={styles.badge}>
+            {customers.length} total contacts
+          </Link>
         </div>
 
         <div className={styles.tableWrap}>
@@ -195,36 +310,48 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {customers.map((customer) => (
-                <tr key={customer.id}>
-                  <td>
-                    <div className={styles.rowMeta}>
-                      <strong>{customer.name}</strong>
-                      <span className={styles.rowSubtle}>{customer.company}</span>
-                    </div>
+              {customers.length > 0 ? (
+                customers.slice(0, 10).map((customer) => (
+                  <tr key={customer.id}>
+                    <td>
+                      <div className={styles.rowMeta}>
+                        <strong>{customer.name}</strong>
+                        <span className={styles.rowSubtle}>{customer.company || "Individual"}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className={styles.rowMeta}>
+                        <span>{customer.mobile || "—"}</span>
+                        <span className={styles.rowSubtle}>{customer.email || "—"}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className={styles.pillRow}>
+                        {customer.tags && customer.tags.length > 0 ? (
+                          customer.tags.map((tag) => (
+                            <span key={tag} className={styles.pill}>
+                              {tag}
+                            </span>
+                          ))
+                        ) : (
+                          <span className={styles.rowSubtle}>—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      SMS {customer.consentSms ? "Yes" : "No"} · Email{" "}
+                      {customer.consentEmail ? "Yes" : "No"}
+                    </td>
+                    <td>{customer.lastContact ? new Date(customer.lastContact).toLocaleDateString() : "Never"}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "24px 0", color: "#8E7F75" }}>
+                    {loading ? "Loading customers..." : "No customers found. Import from Excel or add a customer."}
                   </td>
-                  <td>
-                    <div className={styles.rowMeta}>
-                      <span>{customer.mobile}</span>
-                      <span className={styles.rowSubtle}>{customer.email}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className={styles.pillRow}>
-                      {customer.tags.map((tag) => (
-                        <span key={tag} className={styles.pill}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    SMS {customer.consentSms ? "Yes" : "No"} · Email{" "}
-                    {customer.consentEmail ? "Yes" : "No"}
-                  </td>
-                  <td>{customer.lastContact}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

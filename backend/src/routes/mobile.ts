@@ -1,440 +1,328 @@
-import { CampaignChannel, DeliveryStatus, DeviceStatus } from "@prisma/client";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
-import { authCookieName, readCookie, verifySessionToken } from "../lib/session";
+import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { CampaignStatus, DeliveryStatus, DeviceStatus } from "@prisma/client";
 
 export const mobileRouter = Router();
 
-const registerSchema = z.object({
-  email: z.email(),
-  name: z.string().trim().min(1).default("Pulak"),
+const registerDeviceSchema = z.object({
+  email: z.string().trim().email(),
+  name: z.string().trim().min(1),
   deviceName: z.string().trim().min(1),
   phoneNumber: z.string().trim().min(1),
-  operator: z.string().trim().min(1).default("Unknown"),
+  operator: z.string().trim().min(1),
 });
 
 const heartbeatSchema = z.object({
-  battery: z.string().trim().min(1).optional(),
-  queuedJobs: z.number().int().min(0).optional(),
+  battery: z.string().trim().optional(),
+  queuedJobs: z.number().int().optional(),
 });
 
-const resultSchema = z.object({
+const reportJobSchema = z.object({
   status: z.enum(["SENT", "FAILED"]),
   detail: z.string().trim().min(1),
 });
 
-mobileRouter.post("/register", async (request, response, next) => {
-  try {
-    const payload = registerSchema.parse(request.body);
-
-    const user = await prisma.user.upsert({
-      where: { email: payload.email },
-      update: { name: payload.name },
-      create: {
-        email: payload.email,
-        name: payload.name,
-      },
-    });
-
-    const existingDevice = await prisma.device.findFirst({
-      where: {
-        userId: user.id,
-        deviceName: payload.deviceName,
-        phoneNumber: payload.phoneNumber,
-      },
-    });
-
-    const device = existingDevice
-      ? await prisma.device.update({
-          where: { id: existingDevice.id },
-          data: {
-            operator: payload.operator,
-            status: DeviceStatus.ONLINE,
-            lastSeenAt: new Date(),
-          },
-        })
-      : await prisma.device.create({
-          data: {
-            userId: user.id,
-            deviceName: payload.deviceName,
-            phoneNumber: payload.phoneNumber,
-            operator: payload.operator,
-            status: DeviceStatus.ONLINE,
-            lastSeenAt: new Date(),
-          },
-        });
-
-    response.status(201).json({
-      device: {
-        id: device.id,
-        deviceName: device.deviceName,
-        phoneNumber: device.phoneNumber,
-        operator: device.operator,
-        status: device.status,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-mobileRouter.post("/:deviceId/heartbeat", async (request, response, next) => {
-  try {
-    const { deviceId } = request.params;
-    const payload = heartbeatSchema.parse(request.body);
-
-    const device = await prisma.device.update({
-      where: { id: deviceId },
-      data: {
-        status: DeviceStatus.ONLINE,
-        lastSeenAt: new Date(),
-        ...(payload.battery !== undefined ? { battery: payload.battery } : {}),
-        ...(payload.queuedJobs !== undefined
-          ? { queuedJobs: payload.queuedJobs }
-          : {}),
-      },
-    });
-
-    response.json({
-      ok: true,
-      device: {
-        id: device.id,
-        status: device.status,
-        queuedJobs: device.queuedJobs,
-        battery: device.battery,
-        lastSeenAt: device.lastSeenAt,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-mobileRouter.get("/:deviceId/jobs", async (request, response, next) => {
-  try {
-    const { deviceId } = request.params;
-
-    await prisma.device.update({
-      where: { id: deviceId },
-      data: {
-        status: DeviceStatus.ONLINE,
-        lastSeenAt: new Date(),
-      },
-    });
-
-    const pendingJobs = await prisma.delivery.findMany({
-      where: {
-        channel: CampaignChannel.SMS,
-        status: DeliveryStatus.PENDING,
-      },
-      orderBy: {
-        timestamp: "asc",
-      },
-      take: 20,
-      select: {
-        id: true,
-      },
-    });
-
-    if (pendingJobs.length > 0) {
-      await prisma.delivery.updateMany({
-        where: {
-          id: {
-            in: pendingJobs.map((job) => job.id),
-          },
-        },
-        data: {
-          status: DeliveryStatus.ASSIGNED,
-        },
-      });
-    }
-
-    const jobs = await prisma.delivery.findMany({
-      where: {
-        channel: CampaignChannel.SMS,
-        status: {
-          in: [DeliveryStatus.ASSIGNED, DeliveryStatus.SENDING],
-        },
-      },
-      include: {
-        customer: true,
-        campaign: true,
-      },
-      orderBy: {
-        timestamp: "asc",
-      },
-      take: 20,
-    });
-
-    response.json({
-      jobs: jobs.map((job) => ({
-        id: job.id,
-        phoneNumber: job.customer.mobile,
-        customerName: job.customer.name,
-        campaignName: job.campaign.name,
-        message: job.detail,
-        status: job.status,
-      })),
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-mobileRouter.post("/jobs/:deliveryId/result", async (request, response, next) => {
-  try {
-    const { deliveryId } = request.params;
-    const payload = resultSchema.parse(request.body);
-
-    const status =
-      payload.status === "SENT" ? DeliveryStatus.SENT : DeliveryStatus.FAILED;
-
-    const delivery = await prisma.delivery.update({
-      where: { id: deliveryId },
-      data: {
-        status,
-        detail: payload.detail,
-        timestamp: new Date(),
-      },
-      include: {
-        campaign: true,
-      },
-    });
-
-    if (status === DeliveryStatus.SENT) {
-      await prisma.campaign.update({
-        where: { id: delivery.campaignId },
-        data: {
-          sentCount: {
-            increment: 1,
-          },
-        },
-      });
-    } else {
-      await prisma.campaign.update({
-        where: { id: delivery.campaignId },
-        data: {
-          failedCount: {
-            increment: 1,
-          },
-        },
-      });
-    }
-
-    response.json({
-      ok: true,
-      delivery: {
-        id: delivery.id,
-        status: delivery.status,
-        detail: delivery.detail,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-mobileRouter.get("/stats", async (_request, response, next) => {
-  try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const [sentToday, pending, failedToday] = await Promise.all([
-      prisma.delivery.count({
-        where: {
-          channel: CampaignChannel.SMS,
-          status: DeliveryStatus.SENT,
-          updatedAt: { gte: startOfToday },
-        },
-      }),
-      prisma.delivery.count({
-        where: {
-          channel: CampaignChannel.SMS,
-          status: { in: [DeliveryStatus.PENDING, DeliveryStatus.ASSIGNED] },
-        },
-      }),
-      prisma.delivery.count({
-        where: {
-          channel: CampaignChannel.SMS,
-          status: DeliveryStatus.FAILED,
-          updatedAt: { gte: startOfToday },
-        },
-      }),
-    ]);
-
-    response.json({
-      sentToday,
-      pending,
-      failedToday,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-const createTicketSchema = z.object({
-  subject: z.string().trim().min(1),
-  category: z.string().trim().min(1).default("Connection Issue"),
-  priority: z.string().trim().min(1).default("Medium"),
-  description: z.string().trim().min(1),
-});
-
-mobileRouter.get("/tickets", async (_request, response, next) => {
-  try {
-    const tickets = await prisma.ticket.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      include: {
-        user: {
-          select: { name: true, email: true },
-        },
-      },
-    });
-
-    response.json({
-      tickets: tickets.map((t) => ({
-        id: t.ticketNumber,
-        subject: t.subject,
-        category: t.category,
-        priority: t.priority,
-        description: t.description,
-        status: t.status,
-        timestamp: t.createdAt.toISOString(),
-      })),
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-mobileRouter.post("/tickets", async (request, response, next) => {
-  try {
-    const payload = createTicketSchema.parse(request.body);
-    const bearerHeader = request.headers.authorization;
-    const bearerToken = bearerHeader?.startsWith("Bearer ")
-      ? bearerHeader.substring(7).trim()
-      : undefined;
-    const token = bearerToken || readCookie(request.headers.cookie, authCookieName);
-    const session = verifySessionToken(token);
-
-    let userId = session?.userId;
-    if (!userId) {
-      const defaultUser = await prisma.user.findFirst();
-      if (!defaultUser) {
-        response.status(401).json({ error: "User account required." });
-        return;
-      }
-      userId = defaultUser.id;
-    }
-
-    const count = await prisma.ticket.count();
-    const ticketNumber = `#TKT-${String(count + 1).padStart(3, "0")}`;
-
-    const ticket = await prisma.ticket.create({
-      data: {
-        ticketNumber,
-        userId,
-        subject: payload.subject,
-        category: payload.category,
-        priority: payload.priority,
-        description: payload.description,
-        status: "OPEN",
-      },
-    });
-
-    await prisma.mobileLog.create({
-      data: {
-        userId,
-        type: "INFO",
-        title: "Support Ticket Created",
-        detail: `${ticket.ticketNumber} (${ticket.subject}) submitted to support queue.`,
-      },
-    });
-
-    response.status(201).json({
-      ok: true,
-      ticket: {
-        id: ticket.ticketNumber,
-        subject: ticket.subject,
-        category: ticket.category,
-        priority: ticket.priority,
-        description: ticket.description,
-        status: ticket.status,
-        timestamp: ticket.createdAt.toISOString(),
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-const createLogSchema = z.object({
+const sendLogSchema = z.object({
   type: z.string().trim().default("INFO"),
   title: z.string().trim().min(1),
   detail: z.string().trim().min(1),
-  deviceId: z.string().optional(),
+  deviceId: z.string().trim().optional(),
 });
 
-mobileRouter.get("/logs", async (_request, response, next) => {
-  try {
-    const logs = await prisma.mobileLog.findMany({
-      orderBy: { timestamp: "desc" },
-      take: 100,
-    });
+// POST /api/mobile/register - Register Android companion device
+mobileRouter.post(
+  "/register",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const payload = registerDeviceSchema.parse(request.body);
 
-    response.json({
-      logs: logs.map((l) => ({
-        id: l.id,
-        type: l.type,
-        title: l.title,
-        detail: l.detail,
-        timestampMillis: l.timestamp.getTime(),
-        timeFormatted: l.timestamp.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true,
-        }),
-      })),
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+      const device = await prisma.device.create({
+        data: {
+          userId: authReq.auth.userId,
+          deviceName: payload.deviceName,
+          phoneNumber: payload.phoneNumber,
+          operator: payload.operator,
+          status: DeviceStatus.ONLINE,
+          lastSeenAt: new Date(),
+        },
+      });
 
-mobileRouter.post("/logs", async (request, response, next) => {
-  try {
-    const payload = createLogSchema.parse(request.body);
-    const bearerHeader = request.headers.authorization;
-    const bearerToken = bearerHeader?.startsWith("Bearer ")
-      ? bearerHeader.substring(7).trim()
-      : undefined;
-    const token = bearerToken || readCookie(request.headers.cookie, authCookieName);
-    const session = verifySessionToken(token);
-
-    let userId = session?.userId;
-    if (!userId) {
-      const defaultUser = await prisma.user.findFirst();
-      if (defaultUser) {
-        userId = defaultUser.id;
-      }
-    }
-
-    if (userId) {
       await prisma.mobileLog.create({
         data: {
-          userId,
-          deviceId: payload.deviceId ?? null,
+          userId: authReq.auth.userId,
+          deviceId: device.id,
+          type: "SUCCESS",
+          title: "Device Registered",
+          detail: `${payload.deviceName} (${payload.phoneNumber}) registered to user account.`,
+        },
+      });
+
+      response.status(201).json({ device });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/mobile/heartbeat - Device heartbeat
+mobileRouter.post(
+  "/heartbeat",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const payload = heartbeatSchema.parse(request.body ?? {});
+
+      await prisma.device.updateMany({
+        where: { userId: authReq.auth.userId },
+        data: {
+          status: DeviceStatus.ONLINE,
+          battery: payload.battery || null,
+          queuedJobs: payload.queuedJobs || 0,
+          lastSeenAt: new Date(),
+        },
+      });
+
+      response.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// GET /api/mobile/jobs - Pull pending SMS jobs strictly scoped to this client tenant
+mobileRouter.get(
+  "/jobs",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const isSuper = authReq.auth.role === "SUPERADMIN";
+
+      const deliveries = await prisma.delivery.findMany({
+        where: {
+          status: DeliveryStatus.PENDING,
+          channel: "SMS",
+          ...(isSuper ? {} : { campaign: { userId: authReq.auth.userId } }),
+        },
+        include: {
+          customer: true,
+          campaign: true,
+        },
+        orderBy: { createdAt: "asc" },
+        take: 50,
+      });
+
+      const jobs = deliveries.map((d) => ({
+        id: d.id,
+        phoneNumber: d.customer.mobile || "",
+        customerName: d.customer.name,
+        campaignName: d.campaign.name,
+        message: d.detail,
+        status: d.status,
+      }));
+
+      response.json({ jobs });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/mobile/jobs/:id/result - Report SIM SMS send result
+mobileRouter.post(
+  "/jobs/:id/result",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const id = z.string().min(1).parse(request.params.id);
+      const payload = reportJobSchema.parse(request.body);
+
+      const delivery = await prisma.delivery.update({
+        where: { id },
+        data: {
+          status: payload.status as DeliveryStatus,
+          detail: payload.detail,
+          timestamp: new Date(),
+        },
+        include: { campaign: true, customer: true },
+      });
+
+      if (payload.status === "SENT") {
+        await prisma.campaign.update({
+          where: { id: delivery.campaignId },
+          data: {
+            sentCount: { increment: 1 },
+            status: CampaignStatus.SENDING,
+          },
+        });
+      } else {
+        await prisma.campaign.update({
+          where: { id: delivery.campaignId },
+          data: {
+            failedCount: { increment: 1 },
+          },
+        });
+      }
+
+      await prisma.mobileLog.create({
+        data: {
+          userId: authReq.auth.userId,
+          type: payload.status === "SENT" ? "SUCCESS" : "ERROR",
+          title: payload.status === "SENT" ? "SMS Dispatched" : "SMS Send Failed",
+          detail: `SMS to ${delivery.customer.name} (${delivery.customer.mobile}): ${payload.detail}`,
+        },
+      });
+
+      response.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/mobile/logs - Send mobile audit log
+mobileRouter.post(
+  "/logs",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const payload = sendLogSchema.parse(request.body);
+
+      await prisma.mobileLog.create({
+        data: {
+          userId: authReq.auth.userId,
+          deviceId: payload.deviceId || null,
           type: payload.type,
           title: payload.title,
           detail: payload.detail,
         },
       });
-    }
 
-    response.status(201).json({ ok: true });
-  } catch (error) {
-    next(error);
+      response.status(201).json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
+
+// GET /api/mobile/logs - Fetch mobile logs stream
+mobileRouter.get(
+  "/logs",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const isSuper = authReq.auth.role === "SUPERADMIN";
+
+      const logs = await prisma.mobileLog.findMany({
+        where: isSuper ? {} : { userId: authReq.auth.userId },
+        orderBy: { timestamp: "desc" },
+        take: 100,
+      });
+
+      response.json({ logs });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// GET /api/mobile/stats - Live stats for mobile app dashboard
+mobileRouter.get(
+  "/stats",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const isSuper = authReq.auth.role === "SUPERADMIN";
+
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const [sentToday, pendingJobs, failedJobs] = await Promise.all([
+        prisma.delivery.count({
+          where: {
+            ...(isSuper ? {} : { campaign: { userId: authReq.auth.userId } }),
+            status: DeliveryStatus.SENT,
+            timestamp: { gte: startOfDay },
+          },
+        }),
+        prisma.delivery.count({
+          where: {
+            ...(isSuper ? {} : { campaign: { userId: authReq.auth.userId } }),
+            status: DeliveryStatus.PENDING,
+            channel: "SMS",
+          },
+        }),
+        prisma.delivery.count({
+          where: {
+            ...(isSuper ? {} : { campaign: { userId: authReq.auth.userId } }),
+            status: DeliveryStatus.FAILED,
+          },
+        }),
+      ]);
+
+      response.json({ sentToday, pendingJobs, failedJobs });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// TICKETS (CRUD)
+mobileRouter.post(
+  "/tickets",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const { subject, category, priority, description } = request.body;
+
+      const ticketCount = await prisma.ticket.count();
+      const ticketNumber = `#TKT-${String(ticketCount + 1).padStart(3, "0")}`;
+
+      const ticket = await prisma.ticket.create({
+        data: {
+          userId: authReq.auth.userId,
+          ticketNumber,
+          subject: subject || "Mobile sender support request",
+          category: category || "General",
+          priority: priority || "Medium",
+          description: description || "",
+          status: "OPEN",
+        },
+      });
+
+      response.status(201).json({ ok: true, ticket });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+mobileRouter.get(
+  "/tickets",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const isSuper = authReq.auth.role === "SUPERADMIN";
+
+      const tickets = await prisma.ticket.findMany({
+        where: isSuper ? {} : { userId: authReq.auth.userId },
+        orderBy: { createdAt: "desc" },
+      });
+
+      response.json({ tickets });
+    } catch (error) {
+      next(error);
+    }
+  }
+);

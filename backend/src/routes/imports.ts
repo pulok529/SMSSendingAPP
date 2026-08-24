@@ -81,7 +81,7 @@ function splitTags(value: string): string[] {
 
 importsRouter.post(
   "/sms",
-  requireAuth(["ADMIN", "SENDER"]),
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
   async (request, response, next) => {
     try {
       const authRequest = request as AuthenticatedRequest;
@@ -154,6 +154,7 @@ importsRouter.post(
                 id: existingCustomer.id,
               },
               data: {
+                userId: authRequest.auth.userId,
                 name: validRow.name,
                 company: validRow.company || existingCustomer.company,
                 mobile: validRow.phoneNumber,
@@ -165,6 +166,7 @@ importsRouter.post(
             })
           : await prisma.customer.create({
               data: {
+                userId: authRequest.auth.userId,
                 name: validRow.name,
                 company: validRow.company || null,
                 mobile: validRow.phoneNumber,

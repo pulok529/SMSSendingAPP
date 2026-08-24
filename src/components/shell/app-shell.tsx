@@ -1,5 +1,7 @@
+"use client";
+
 import Link from "next/link";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   CalendarRange,
   ClipboardList,
@@ -14,9 +16,9 @@ import {
 import styles from "./app-shell.module.css";
 import { LogoutButton } from "./logout-button";
 
-const navItems = [
+const allNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/users", label: "Users & Clients", icon: ShieldCheck },
+  { href: "/users", label: "Users & Clients", icon: ShieldCheck, superOnly: true },
   { href: "/imports", label: "Imports", icon: Upload },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/events", label: "Events", icon: CalendarRange },
@@ -39,6 +41,35 @@ export function AppShell({
   title,
   description,
 }: AppShellProps) {
+  const [userRole, setUserRole] = useState<string>("CLIENT");
+  const [readyCount, setReadyCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    // 1. Fetch user role
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user?.role) {
+          setUserRole(data.user.role);
+        }
+      })
+      .catch(() => {});
+
+    // 2. Fetch live ready count
+    fetch("/api/dashboard/summary")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (typeof data?.counts?.smsReady === "number") {
+          setReadyCount(data.counts.smsReady);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const navItems = allNavItems.filter(
+    (item) => !item.superOnly || userRole === "SUPERADMIN" || userRole === "ADMIN"
+  );
+
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -70,9 +101,11 @@ export function AppShell({
 
         <div className={styles.sidebarFooter}>
           <div className={styles.footerLabel}>Ready to Send</div>
-          <div className={styles.footerValue}>8,124 contacts</div>
+          <div className={styles.footerValue}>
+            {readyCount !== null ? `${readyCount.toLocaleString()} contacts` : "Loading..."}
+          </div>
           <p className={styles.footerText}>
-            SMS-safe contacts with valid AU mobile numbers and active consent.
+            SMS-safe contacts with valid mobile numbers and active consent.
           </p>
         </div>
       </aside>

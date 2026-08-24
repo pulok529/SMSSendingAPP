@@ -63,6 +63,8 @@ model User {
   devices      Device[]
   events       Event[]
   campaigns    Campaign[]
+  customers    Customer[]
+  templates    Template[]
   tickets      Ticket[]
   mobileLogs   MobileLog[]
 }
@@ -84,6 +86,8 @@ model Device {
 
 model Customer {
   id           String     @id @default(cuid())
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
   company      String?
   mobile       String?
@@ -97,6 +101,19 @@ model Customer {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   deliveries   Delivery[]
+}
+
+model Template {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  category  String
+  channel   CampaignChannel @default(SMS)
+  body      String
+  variables String[]        @default([])
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
 model Event {

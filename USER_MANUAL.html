@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pulse Dispatch — Platform User Manual</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm 20mm 18mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #22150E;
+    background-color: #FFFFFF;
+    line-height: 1.6;
+    font-size: 13.5px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .cover-page {
+    page-break-after: always;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .cover-logo {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #CE631D 0%, #ECA051 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    color: white;
+    box-shadow: 0 12px 24px rgba(206, 99, 29, 0.35);
+    margin-bottom: 24px;
+  }
+
+  .cover-title {
+    font-size: 34px;
+    font-weight: 800;
+    color: #22150E;
+    margin: 0 0 12px 0;
+    letter-spacing: -0.5px;
+  }
+
+  .cover-subtitle {
+    font-size: 18px;
+    color: #CE631D;
+    font-weight: 600;
+    margin: 0 0 24px 0;
+  }
+
+  .cover-desc {
+    font-size: 15px;
+    color: #5F5047;
+    max-width: 520px;
+    line-height: 1.6;
+    margin-bottom: 40px;
+  }
+
+  .cover-badge {
+    display: inline-block;
+    padding: 8px 18px;
+    background: #F7EFE6;
+    color: #22150E;
+    border: 1px solid #E4D8CE;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .cover-footer {
+    margin-top: auto;
+    font-size: 12px;
+    color: #8E7F75;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 800;
+    color: #22150E;
+    border-bottom: 2px solid #CE631D;
+    padding-bottom: 6px;
+    margin-top: 36px;
+    margin-bottom: 16px;
+    page-break-after: avoid;
+  }
+
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #22150E;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #CE631D;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+  }
+
+  p, li {
+    color: #3F332B;
+    margin-bottom: 10px;
+  }
+
+  ul, ol {
+    margin-top: 4px;
+    margin-bottom: 14px;
+    padding-left: 24px;
+  }
+
+  li {
+    margin-bottom: 6px;
+  }
+
+  .card {
+    background: #FAF6F0;
+    border: 1px solid #E4D8CE;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    page-break-inside: avoid;
+  }
+
+  .card-title {
+    font-weight: 700;
+    color: #CE631D;
+    font-size: 14px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 12.5px;
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: #F7EFE6;
+    color: #22150E;
+    font-weight: 700;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid #CE631D;
+  }
+
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #EAE0D5;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) {
+    background-color: #FCF9F5;
+  }
+
+  code {
+    background: #F0E6DD;
+    color: #22150E;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 12px;
+  }
+
+  pre {
+    background: #22150E;
+    color: #FAF6F0;
+    padding: 14px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 12px;
+    page-break-inside: avoid;
+  }
+
+  .badge-super {
+    background: #EDE9FE;
+    color: #6B21A8;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11px;
+    display: inline-block;
+  }
+
+  .badge-client {
+    background: #FEF3C7;
+    color: #B45309;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11px;
+    display: inline-block;
+  }
+
+  .badge-active {
+    background: #DCFCE7;
+    color: #15803D;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11px;
+    display: inline-block;
+  }
+
+  .step-box {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #CE631D;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+  }
+
+  .step-body {
+    flex: 1;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dotted #D1C4B8;
+  }
+
+  .toc-title {
+    font-weight: 600;
+    color: #22150E;
+    text-decoration: none;
+  }
+
+  .toc-page {
+    color: #CE631D;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover-page">
+  <div class="cover-logo">⚡</div>
+  <div class="cover-title">Pulse Dispatch</div>
+  <div class="cover-subtitle">Enterprise SMS Gateway & Multi-Tenant Management Platform</div>
+  <p class="cover-desc">
+    Official Operational Manual for Platform Administrators (Superusers) and Business Clients (Tenants).
+    Covers web administration, contact imports, campaign scheduling, and companion Android SIM hardware setup.
+  </p>
+  <div class="cover-badge">Version 1.0.0 &bull; Production Release</div>
+  <div class="cover-footer">
+    &copy; 2026 Pulse Dispatch Platform. All rights reserved.
+  </div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<h1>Table of Contents</h1>
+<div style="margin: 24px 0 36px 0;">
+  <div class="toc-item"><span class="toc-title">1. Platform Architecture & Multi-Tenant Isolation</span></div>
+  <div class="toc-item"><span class="toc-title">2. Superuser (Administrator) Operations Guide</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">2.1 Logging in as Superadmin</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">2.2 Managing Client Accounts (/users)</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">2.3 Creating New Client Users</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">2.4 Disabling & Enabling Client Accounts</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">2.5 Resetting Client Passwords</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">2.6 Inspecting Client Hardware & Live Telemetry</span></div>
+  <div class="toc-item"><span class="toc-title">3. Client User Guide (Business Tenants)</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">3.1 Web Dashboard Overview (/dashboard)</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">3.2 Importing Contacts via Excel Spreadsheet (/imports)</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">3.3 Managing Customer Directory (/customers)</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">3.4 Scheduling Events (/events)</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">3.5 Creating Message Templates (/templates)</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">3.6 Launching SMS Campaigns (/campaigns)</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">3.7 Real-time Broadcast Audit Logs (/logs)</span></div>
+  <div class="toc-item"><span class="toc-title">4. Android Companion App Setup & SIM Gateway</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">4.1 Installing the Production APK</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">4.2 Configuring the Server URL</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">4.3 Logging In with Client Credentials</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">4.4 Permissions & Automatic SIM Dispatch</span></div>
+  <div class="toc-item" style="padding-left: 20px;"><span class="toc-title">4.5 Activity Stream & Support Tickets</span></div>
+  <div class="toc-item"><span class="toc-title">5. Production Deployment & Server Publishing</span></div>
+  <div class="toc-item"><span class="toc-title">6. Troubleshooting & FAQs</span></div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- SECTION 1 -->
+<h1>1. Platform Architecture & Multi-Tenant Isolation</h1>
+<p>
+  Pulse Dispatch turns standard Android smartphones into <strong>private, low-cost SMS broadcast gateways</strong>.
+  The platform connects a web application management suite with native Android hardware dispatch.
+</p>
+
+<div class="card">
+  <div class="card-title">🔐 Strict Multi-Tenant Data Isolation Rules</div>
+  <ul>
+    <li><strong>Client Users (<span class="badge-client">CLIENT</span>):</strong> Strictly see and manage their own customer records, scheduled events, broadcast campaigns, message templates, delivery logs, and companion Android phones.</li>
+    <li><strong>Android Phone Gateway:</strong> An Android phone logged in with a client account <strong>strictly pulls and dispatches SMS jobs for that specific client's campaigns</strong>.</li>
+    <li><strong>Superuser (<span class="badge-super">SUPERADMIN</span>):</strong> Has global platform oversight, access to user provisioning at <code>/users</code>, 1-click account access control, and hardware telemetry auditing.</li>
+  </ul>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>Client Tenant (CLIENT)</th>
+      <th>Superadmin (SUPERADMIN)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Data Scope</strong></td>
+      <td>Strictly isolated to their own records</td>
+      <td>Global access across all client tenants</td>
+    </tr>
+    <tr>
+      <td><strong>Users Menu (<code>/users</code>)</strong></td>
+      <td>Hidden & inaccessible</td>
+      <td>Full user creation, disable/enable, reset</td>
+    </tr>
+    <tr>
+      <td><strong>SMS SIM Dispatch</strong></td>
+      <td>Companion phone sends only their SMS jobs</td>
+      <td>Can audit all connected devices & queues</td>
+    </tr>
+    <tr>
+      <td><strong>Account Control</strong></td>
+      <td>Self profile updates</td>
+      <td>1-Click Enable/Disable any user account</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 2 -->
+<h1>2. Superuser (Administrator) Operations Guide</h1>
+
+<h2>2.1 Logging in as Superadmin</h2>
+<div class="step-box">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    Navigate to the web portal login page (e.g. <code>http://localhost:3000/login</code> or your public domain).
+  </div>
+</div>
+<div class="step-box">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    Enter default Superadmin credentials:
+    <br><strong>Email:</strong> <code>pulak@example.com</code>
+    <br><strong>Password:</strong> <code>admin12345</code>
+  </div>
+</div>
+<div class="step-box">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    Upon sign in, the exclusive <strong>Users & Clients</strong> navigation tab will appear in the sidebar.
+  </div>
+</div>
+
+<h2>2.2 Managing Client Accounts (<code>/users</code>)</h2>
+<p>The <strong>Users & Clients</strong> dashboard provides complete control over tenant provisioning and system security:</p>
+<ul>
+  <li><strong>Live Metric Cards:</strong> Real-time counts for Total Users, Active Clients, Disabled Accounts, and Registered Android Phones.</li>
+  <li><strong>Multi-parameter Filter:</strong> Search by client name, email, company, or phone; filter by Role and Active status.</li>
+  <li><strong>User Directory Table:</strong> Displays company name, contact info, role badge, status pill, connected phone count, and action buttons.</li>
+</ul>
+
+<h2>2.3 Creating New Client Users</h2>
+<div class="step-box">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    Click <strong>+ Create Client User</strong> at the top right of <code>/users</code>.
+  </div>
+</div>
+<div class="step-box">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    Fill in client details:
+    <ul>
+      <li><strong>Full Name:</strong> Primary contact name (e.g. <code>David Miller</code>).</li>
+      <li><strong>Email (Login ID):</strong> Client username (e.g. <code>david@apexretail.com</code>).</li>
+      <li><strong>Initial Password:</strong> Secure password for client (e.g. <code>ApexPass2026!</code>).</li>
+      <li><strong>Company Name:</strong> Organization name (e.g. <code>Apex Retail Pty Ltd</code>).</li>
+      <li><strong>Phone & Address:</strong> Contact number and city location.</li>
+      <li><strong>Role:</strong> Select <code>Client (Standard Tenant)</code>.</li>
+    </ul>
+  </div>
+</div>
+<div class="step-box">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    Click <strong>Create User Account</strong>. The client can now log in to the web dashboard and Android app immediately.
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<h2>2.4 Disabling & Enabling Client Accounts</h2>
+<div class="card">
+  <div class="card-title">⚡ 1-Click Instant Access Control</div>
+  <p>
+    If a client's subscription expires or needs suspension, click the <strong>Disable</strong> button on their row in <code>/users</code>.
+    The account turns <strong>DISABLED (RED)</strong>, and all web and mobile login or dispatch requests are immediately blocked with HTTP 403 Forbidden.
+    Click <strong>Enable</strong> at any time to instantly restore access.
+  </p>
+</div>
+
+<h2>2.5 Resetting Client Passwords</h2>
+<p>Click the <strong>Key icon (Reset Password)</strong> on any client row, enter a new password, and click Confirm.</p>
+
+<h2>2.6 Inspecting Client Hardware & Activity Logs</h2>
+<p>
+  Click the <strong>Eye icon (View Activity)</strong> on a client's row to open the <strong>Client Activity Drawer</strong>. This reveals:
+</p>
+<ul>
+  <li><strong>Linked Android Hardware:</strong> Device model (e.g. <code>Galaxy A55</code>), SIM carrier (<code>Telstra AU</code>), SIM phone number, battery percentage, and live status.</li>
+  <li><strong>Live Audit Stream:</strong> Timestamped logs of SMS dispatches, device logins, and support inquiries.</li>
+</ul>
+
+<!-- SECTION 3 -->
+<h1>3. Client User Guide (Business Tenants)</h1>
+
+<h2>3.1 Web Dashboard Overview (<code>/dashboard</code>)</h2>
+<p>The client dashboard is customized for broadcast operations:</p>
+<ul>
+  <li><strong>Ready to Send:</strong> Real-time count of customer contacts with active SMS consent.</li>
+  <li><strong>Active Campaigns:</strong> Live progress bars showing sent vs. pending messages.</li>
+  <li><strong>Linked Phone:</strong> Hardware telemetry and battery percentage of your companion Android phone.</li>
+</ul>
+
+<h2>3.2 Importing Contacts via Excel Spreadsheet (<code>/imports</code>)</h2>
+<div class="step-box">
+  <div class="step-num">1</div>
+  <div class="step-body">Navigate to <strong>Imports</strong> in the sidebar.</div>
+</div>
+<div class="step-box">
+  <div class="step-num">2</div>
+  <div class="step-body">Drag and drop your <code>.xlsx</code>, <code>.xls</code>, or <code>.csv</code> spreadsheet. Columns for Name, Mobile, Email, Company, City, and Tags are automatically mapped.</div>
+</div>
+<div class="step-box">
+  <div class="step-num">3</div>
+  <div class="step-body">Enter your customized broadcast text using merge tags (e.g. <code>Hi [Name], your order is ready!</code>).</div>
+</div>
+<div class="step-box">
+  <div class="step-num">4</div>
+  <div class="step-body">Click <strong>Import & Queue Campaign</strong>. Contacts are verified, deduplicated, and stored in your private database directory.</div>
+</div>
+
+<h2>3.3 Managing Customer Directory (<code>/customers</code>)</h2>
+<p>View, search, and manage customer records with real-time SMS and Email consent status pills. Click <strong>+ Add Customer</strong> to add individual clients manually.</p>
+
+<h2>3.4 Scheduling Events (<code>/events</code>)</h2>
+<p>Create event records with Date, Venue, Target Audience, and customized SMS message templates. Click <strong>Launch Campaign</strong> on any event card to trigger the broadcast.</p>
+
+<h2>3.5 Creating Message Templates (<code>/templates</code>)</h2>
+<p>Store reusable SMS and Email messages with dynamic merge tags like <code>{{name}}</code>, <code>{{company}}</code>, and <code>{{venue}}</code>.</p>
+
+<h2>3.6 Launching SMS Campaigns (<code>/campaigns</code>)</h2>
+<div class="step-box">
+  <div class="step-num">1</div>
+  <div class="step-body">Click <strong>+ Create Campaign</strong> on <code>/campaigns</code>.</div>
+</div>
+<div class="step-box">
+  <div class="step-num">2</div>
+  <div class="step-body">Select channel <strong>SMS (Android SIM)</strong>, pick an optional linked Event, and set message text.</div>
+</div>
+<div class="step-box">
+  <div class="step-num">3</div>
+  <div class="step-body">Click <strong>Launch & Queue SMS</strong>. Messages appear in the live queue for your phone to dispatch.</div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- SECTION 4 -->
+<h1>4. Android Companion App Setup & SIM Gateway</h1>
+<p>The companion Android application (<strong>Pulse Sender</strong>) turns your phone into a private carrier SIM SMS gateway.</p>
+
+<h2>4.1 Installing the Production APK</h2>
+<div class="step-box">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    Obtain the production APK file: <code>android-app/app/build/outputs/apk/release/app-release.apk</code>.
+  </div>
+</div>
+<div class="step-box">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    Transfer the APK to any Android phone (Android 10.0+ / API 29+). Tap the file to install (allow "Install unknown apps" if prompted).
+  </div>
+</div>
+
+<h2>4.2 Configuring the Server URL</h2>
+<div class="step-box">
+  <div class="step-num">1</div>
+  <div class="step-body">Open <strong>Pulse Sender</strong> on the phone.</div>
+</div>
+<div class="step-box">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    Tap <strong>🌐 API Gateway Server</strong> below the password field.
+  </div>
+</div>
+<div class="step-box">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    Enter your published server URL:
+    <br>&bull; Production Domain: <code>https://your-domain.com</code>
+    <br>&bull; Local Testing: <code>http://192.168.1.50:4000</code>
+  </div>
+</div>
+
+<h2>4.3 Logging In with Client Credentials</h2>
+<p>Enter the client <strong>Email</strong> and <strong>Password</strong> created by the Superadmin and tap <strong>Sign In</strong>. The app authenticates and displays your <span class="badge-client">CLIENT</span> badge and company name.</p>
+
+<h2>4.4 Permissions & Automatic SIM Dispatch</h2>
+<ul>
+  <li><strong>Send SMS Permission:</strong> Required to send messages via the phone SIM card.</li>
+  <li><strong>Notification Permission:</strong> Keeps the background service active for automated dispatching.</li>
+  <li><strong>Automatic Sending:</strong> When campaigns are queued from the web app, your phone automatically pulls pending jobs and dispatches them with real-time status reporting.</li>
+</ul>
+
+<!-- SECTION 5 -->
+<h1>5. Production Deployment & Server Publishing</h1>
+
+<h2>Backend & Database (Docker Deployment)</h2>
+<pre>git clone https://github.com/pulok529/SMSSendingAPP.git
+cd SMSSendingAPP
+docker compose up -d --build</pre>
+<p>The Express API runs on port <code>4000</code> and PostgreSQL on port <code>5432</code>. Configure an Nginx reverse proxy with SSL certificate (<code>https://api.yourdomain.com</code> &rarr; <code>http://localhost:4000</code>).</p>
+
+<h2>Web Application (Next.js)</h2>
+<pre>npm ci
+npm run build
+npm run start</pre>
+<p>Proxy port <code>3000</code> with SSL (<code>https://yourdomain.com</code> &rarr; <code>http://localhost:3000</code>).</p>
+
+<!-- SECTION 6 -->
+<h1>6. Troubleshooting & FAQs</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Issue</th>
+      <th>Possible Cause</th>
+      <th>Solution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>"Cannot reach server" on Mobile App</strong></td>
+      <td>Incorrect Server URL or phone has no internet</td>
+      <td>Tap "API Gateway Server" on login screen and verify URL (e.g. <code>https://api.yourdomain.com</code>). Check Wi-Fi/data.</td>
+    </tr>
+    <tr>
+      <td><strong>"Your account has been disabled"</strong></td>
+      <td>Superadmin deactivated the client account</td>
+      <td>Contact administrator to reactivate your account in <code>/users</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>SMS jobs stay in "PENDING"</strong></td>
+      <td>Phone is offline or background service paused</td>
+      <td>Open Pulse Sender app, check SIM signal, and ensure "Auto-Fetch Queue" is enabled in Settings.</td>
+    </tr>
+    <tr>
+      <td><strong>Android kills background service</strong></td>
+      <td>Aggressive battery saver on phone</td>
+      <td>Android Settings &rarr; Apps &rarr; Pulse Sender &rarr; Battery &rarr; Select <strong>Unrestricted</strong>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div style="margin-top: 40px; text-align: center; font-size: 12px; color: #8E7F75; border-top: 1px solid #EAE0D5; padding-top: 16px;">
+  Pulse Dispatch &bull; Enterprise SMS Broadcast & Multi-Tenant Gateway Platform
+</div>
+
+</body>
+</html>

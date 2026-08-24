@@ -8,6 +8,11 @@ const routeMeta: Record<string, { title: string; description: string }> = {
     description:
       "Track imports, customer readiness, live device dispatch, and upcoming event communication from one operational dashboard.",
   },
+  "/quick-send": {
+    title: "Instant SMS Dispatch",
+    description:
+      "Quickly send SMS messages to one or multiple recipients from an Excel spreadsheet or manual list without creating formal events.",
+  },
   "/users": {
     title: "User & Client Management",
     description:

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 
 const protectedRoutes = [
   "/dashboard",
+  "/quick-send",
   "/users",
   "/imports",
   "/customers",
@@ -13,20 +14,30 @@ const protectedRoutes = [
   "/logs",
 ];
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const hasSession = request.cookies.has("pulse_session");
+
+  // Root route: redirect to /login if unauthenticated, or /dashboard if authenticated
+  if (pathname === "/") {
+    if (!hasSession) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   const isProtectedRoute = protectedRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
-  const hasSession = request.cookies.has("pulse_session");
 
+  // Unauthenticated user trying to access protected page
   if (isProtectedRoute && !hasSession) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
-
     return NextResponse.redirect(loginUrl);
   }
 
+  // Already authenticated user trying to access /login
   if (pathname === "/login" && hasSession) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
@@ -43,7 +54,9 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/dashboard/:path*",
+    "/quick-send/:path*",
     "/users/:path*",
     "/imports/:path*",
     "/customers/:path*",

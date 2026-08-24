@@ -188,3 +188,117 @@ campaignsRouter.post(
     }
   }
 );
+
+const quickSendSchema = z.object({
+  name: z.string().trim().optional(),
+  message: z.string().trim().min(1, "SMS message is required"),
+  recipients: z
+    .array(
+      z.object({
+        name: z.string().trim().optional().default("Valued Contact"),
+        phone: z.string().trim().min(3, "Phone number is required"),
+        company: z.string().trim().optional(),
+        custom: z.string().trim().optional(),
+      })
+    )
+    .min(1, "At least 1 recipient is required"),
+});
+
+campaignsRouter.post(
+  "/quick-send",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const payload = quickSendSchema.parse(request.body);
+
+      const processedDeliveries: { customerId: string; phone: string; text: string }[] = [];
+
+      for (const item of payload.recipients) {
+        const rawPhone = item.phone.trim();
+        const cleanPhone = rawPhone.replace(/[^\d+]/g, "");
+        if (!cleanPhone || cleanPhone.length < 5) continue;
+
+        const recipientName = item.name?.trim() || "Valued Contact";
+        const recipientCompany = item.company?.trim() || null;
+
+        let customer = await prisma.customer.findFirst({
+          where: {
+            userId: authReq.auth.userId,
+            mobile: cleanPhone,
+          },
+        });
+
+        if (!customer) {
+          customer = await prisma.customer.create({
+            data: {
+              userId: authReq.auth.userId,
+              name: recipientName,
+              mobile: cleanPhone,
+              company: recipientCompany,
+              consentSms: true,
+              tags: ["instant-send", "quick-dispatch"],
+            },
+          });
+        }
+
+        let text = payload.message;
+        text = text.replaceAll("{{name}}", recipientName);
+        text = text.replaceAll("{{phone}}", cleanPhone);
+        text = text.replaceAll("{{company}}", recipientCompany || "");
+        text = text.replaceAll("{{custom}}", item.custom?.trim() || "");
+        text = text.replaceAll("[name]", recipientName);
+        text = text.replaceAll("[phone]", cleanPhone);
+        text = text.replaceAll("[company]", recipientCompany || "");
+
+        processedDeliveries.push({
+          customerId: customer.id,
+          phone: cleanPhone,
+          text,
+        });
+      }
+
+      if (processedDeliveries.length === 0) {
+        response.status(400).json({ error: "No valid phone numbers found in recipient list." });
+        return;
+      }
+
+      const now = new Date();
+      const campaignTitle =
+        payload.name?.trim() ||
+        `Instant SMS - ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+
+      const campaign = await prisma.campaign.create({
+        data: {
+          userId: authReq.auth.userId,
+          name: campaignTitle,
+          channel: CampaignChannel.SMS,
+          audienceSize: processedDeliveries.length,
+          status: CampaignStatus.QUEUED,
+          launchedAt: new Date(),
+        },
+      });
+
+      await prisma.delivery.createMany({
+        data: processedDeliveries.map((item) => ({
+          customerId: item.customerId,
+          campaignId: campaign.id,
+          channel: CampaignChannel.SMS,
+          status: DeliveryStatus.PENDING,
+          detail: item.text,
+        })),
+      });
+
+      response.status(201).json({
+        ok: true,
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        queuedCount: processedDeliveries.length,
+        message: `Successfully queued ${processedDeliveries.length} instant SMS messages for dispatch!`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+

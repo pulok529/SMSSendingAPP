@@ -12,12 +12,14 @@ import {
   ShieldCheck,
   Upload,
   Users,
+  Zap,
 } from "lucide-react";
 import styles from "./app-shell.module.css";
 import { LogoutButton } from "./logout-button";
 
 const allNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/quick-send", label: "Quick Send (Instant)", icon: Zap },
   { href: "/users", label: "Users & Clients", icon: ShieldCheck, superOnly: true },
   { href: "/imports", label: "Imports", icon: Upload },
   { href: "/customers", label: "Customers", icon: Users },
@@ -27,6 +29,15 @@ const allNavItems = [
   { href: "/device", label: "Device", icon: PlugZap },
   { href: "/logs", label: "Logs", icon: ScrollText },
 ];
+
+interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  company?: string | null;
+  phone?: string | null;
+}
 
 type AppShellProps = {
   children: ReactNode;
@@ -41,19 +52,29 @@ export function AppShell({
   title,
   description,
 }: AppShellProps) {
-  const [userRole, setUserRole] = useState<string>("CLIENT");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [readyCount, setReadyCount] = useState<number | null>(null);
 
   useEffect(() => {
-    // 1. Fetch user role
+    // 1. Fetch user role and profile details
     fetch("/api/auth/me", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!res.ok) {
+          window.location.href = "/login";
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
-        if (data?.user?.role) {
-          setUserRole(data.user.role);
+        if (data?.user) {
+          setCurrentUser(data.user);
+        } else {
+          window.location.href = "/login";
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        window.location.href = "/login";
+      });
 
     // 2. Fetch live ready count
     fetch("/api/dashboard/summary", { credentials: "include" })
@@ -66,8 +87,19 @@ export function AppShell({
       .catch(() => {});
   }, []);
 
+  const isSuperUser = currentUser?.role === "SUPERADMIN" || currentUser?.role === "ADMIN";
+  const userRole = currentUser?.role || "CLIENT";
+  const initials = currentUser?.name
+    ? currentUser.name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0].toUpperCase())
+        .join("")
+    : "PS";
+
   const navItems = allNavItems.filter(
-    (item) => !item.superOnly || userRole === "SUPERADMIN" || userRole === "ADMIN"
+    (item) => !item.superOnly || isSuperUser
   );
 
   return (
@@ -118,14 +150,44 @@ export function AppShell({
             <p className={styles.topbarText}>{description}</p>
           </div>
 
-          <div className={styles.actions}>
-            <Link href="/imports" className={styles.ghostAction}>
-              Import Customers
-            </Link>
-            <Link href="/campaigns" className={styles.primaryAction}>
-              Create Campaign
-            </Link>
-            <LogoutButton />
+          <div className={styles.topbarRight}>
+            <div className={styles.userProfileCard}>
+              <div
+                className={`${styles.userAvatar} ${
+                  isSuperUser ? styles.superAvatar : styles.clientAvatar
+                }`}
+              >
+                {initials}
+              </div>
+              <div className={styles.userInfo}>
+                <div className={styles.userHeaderRow}>
+                  <span className={styles.userName}>{currentUser?.name || "Loading..."}</span>
+                  <span
+                    className={`${styles.roleBadge} ${
+                      isSuperUser ? styles.superRoleBadge : styles.clientRoleBadge
+                    }`}
+                  >
+                    {isSuperUser ? "🛡️ SUPER USER" : "🏢 CLIENT USER"}
+                  </span>
+                </div>
+                <div className={styles.userSubRow}>
+                  <span className={styles.userEmail}>{currentUser?.email || "—"}</span>
+                  {currentUser?.company && !isSuperUser && (
+                    <span className={styles.userCompany}>• {currentUser.company}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.actions}>
+              <Link href="/imports" className={styles.ghostAction}>
+                Import Customers
+              </Link>
+              <Link href="/campaigns" className={styles.primaryAction}>
+                Create Campaign
+              </Link>
+              <LogoutButton />
+            </div>
           </div>
         </header>
 

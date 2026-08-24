@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pulse Dispatch — Client User Guide</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 18mm 18mm 18mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #22150E;
+    background-color: #FFFFFF;
+    line-height: 1.6;
+    font-size: 13.5px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .cover-page {
+    page-break-after: always;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .cover-logo {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #CE631D 0%, #ECA051 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 44px;
+    color: white;
+    box-shadow: 0 12px 24px rgba(206, 99, 29, 0.3);
+    margin-bottom: 22px;
+  }
+
+  .cover-title {
+    font-size: 32px;
+    font-weight: 800;
+    color: #22150E;
+    margin: 0 0 10px 0;
+    letter-spacing: -0.5px;
+  }
+
+  .cover-subtitle {
+    font-size: 17px;
+    color: #CE631D;
+    font-weight: 600;
+    margin: 0 0 20px 0;
+  }
+
+  .cover-desc {
+    font-size: 14.5px;
+    color: #5F5047;
+    max-width: 520px;
+    line-height: 1.6;
+    margin-bottom: 36px;
+  }
+
+  .cover-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: #F7EFE6;
+    color: #22150E;
+    border: 1px solid #E4D8CE;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .cover-footer {
+    margin-top: auto;
+    font-size: 12px;
+    color: #8E7F75;
+  }
+
+  h1 {
+    font-size: 21px;
+    font-weight: 800;
+    color: #22150E;
+    border-bottom: 2px solid #CE631D;
+    padding-bottom: 6px;
+    margin-top: 32px;
+    margin-bottom: 14px;
+    page-break-after: avoid;
+  }
+
+  h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #22150E;
+    margin-top: 22px;
+    margin-bottom: 10px;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #CE631D;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    page-break-after: avoid;
+  }
+
+  p, li {
+    color: #3F332B;
+    margin-bottom: 8px;
+  }
+
+  ul, ol {
+    margin-top: 4px;
+    margin-bottom: 12px;
+    padding-left: 22px;
+  }
+
+  li {
+    margin-bottom: 5px;
+  }
+
+  /* Visual UI Mockup Box */
+  .ui-mockup {
+    background: #FFFFFF;
+    border: 1.5px solid #E4D8CE;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin: 16px 0;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+
+  .ui-mockup-header {
+    background: #F7EFE6;
+    padding: 8px 14px;
+    border-bottom: 1px solid #E4D8CE;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #5F5047;
+  }
+
+  .ui-mockup-body {
+    padding: 16px;
+  }
+
+  .ui-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .ui-mini-card {
+    background: #FAF6F0;
+    border: 1px solid #EAE0D5;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .ui-mini-card strong {
+    display: block;
+    font-size: 20px;
+    color: #CE631D;
+    margin-top: 4px;
+  }
+
+  .ui-mini-card span {
+    font-size: 11px;
+    color: #8E7F75;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .callout {
+    background: #FAF6F0;
+    border-left: 4px solid #CE631D;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    margin: 14px 0;
+    page-break-inside: avoid;
+  }
+
+  .callout-tip {
+    background: #F0FDF4;
+    border-left: 4px solid #16A34A;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    margin: 14px 0;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 12.5px;
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: #F7EFE6;
+    color: #22150E;
+    font-weight: 700;
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 2px solid #CE631D;
+  }
+
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #EAE0D5;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) {
+    background-color: #FCF9F5;
+  }
+
+  .badge-sms {
+    background: #FEF3C7;
+    color: #B45309;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11px;
+    display: inline-block;
+  }
+
+  .badge-sent {
+    background: #DCFCE7;
+    color: #15803D;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11px;
+    display: inline-block;
+  }
+
+  .badge-pending {
+    background: #FEF9C3;
+    color: #A16207;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11px;
+    display: inline-block;
+  }
+
+  .step-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+    page-break-inside: avoid;
+  }
+
+  .step-bubble {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #CE631D;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+  }
+
+  .step-text {
+    flex: 1;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  .field-desc {
+    background: #FAF6F0;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #5F5047;
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover-page">
+  <div class="cover-logo">⚡</div>
+  <div class="cover-title">Pulse Dispatch</div>
+  <div class="cover-subtitle">Client User Manual & Quick Start Guide</div>
+  <p class="cover-desc">
+    Welcome to your private SMS broadcast platform! This friendly manual will guide you through importing contacts, creating events, launching personalized SMS campaigns, and pairing your Android phone.
+  </p>
+  <div class="cover-badge">Customer Edition &bull; Easy Step-by-Step Guide</div>
+  <div class="cover-footer">
+    Pulse Dispatch Platform &bull; Customer Support & Operational Guide
+  </div>
+</div>
+
+<!-- SECTION 1: WELCOME & OVERVIEW -->
+<h1>1. Welcome & How the System Works</h1>
+<p>
+  <strong>Pulse Dispatch</strong> is a private SMS and event broadcast solution. It lets you send personalized text messages to your customers directly using your own mobile carrier SIM card plan—saving you costly per-message SMS gateway fees.
+</p>
+
+<div class="callout">
+  <strong>💡 The System Has Two Simple Parts:</strong>
+  <ol style="margin-top: 8px;">
+    <li><strong>The Web Dashboard (On Your Computer):</strong> Open in any web browser to upload customer spreadsheets, create promotional events, compose message templates, and click "Launch Campaign".</li>
+    <li><strong>The Pulse Sender App (On Your Android Phone):</strong> An app installed on your phone with a SIM card. It securely pulls the messages you queued on the web and sends them out automatically.</li>
+  </ol>
+</div>
+
+<!-- UI MOCKUP OVERVIEW -->
+<div class="ui-mockup">
+  <div class="ui-mockup-header">
+    <span>🌐 Web Dashboard Overview</span>
+    <span class="badge-sent">SYSTEM ACTIVE</span>
+  </div>
+  <div class="ui-mockup-body">
+    <div class="ui-card-grid">
+      <div class="ui-mini-card">
+        <span>Ready to Send</span>
+        <strong>1,250</strong>
+      </div>
+      <div class="ui-mini-card">
+        <span>Active Campaigns</span>
+        <strong>3 Live</strong>
+      </div>
+      <div class="ui-mini-card">
+        <span>Linked Android SIM</span>
+        <strong style="color: #15803D;">Online (94%)</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: LOGGING IN -->
+<h1>2. Logging In to Your Web Dashboard</h1>
+<p>
+  Open your web browser (Chrome, Edge, Safari, or Firefox) and navigate to the web address provided by your service administrator.
+</p>
+
+<div class="step-row">
+  <div class="step-bubble">1</div>
+  <div class="step-text">
+    <strong>Enter Your Login Credentials:</strong>
+    <div class="field-desc">
+      &bull; <strong>Email Address:</strong> Your registered business email (e.g. <code>client@yourbusiness.com</code>)<br>
+      &bull; <strong>Password:</strong> Your private password provided by the administrator.
+    </div>
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">2</div>
+  <div class="step-text">
+    Click <strong>Sign In</strong>. You will be taken directly to your personalized business dashboard.
+  </div>
+</div>
+
+<div class="callout-tip">
+  <strong>🔒 Private & Secure:</strong> All your customer records, phone numbers, campaigns, and delivery logs are 100% private to your company. No other business can see your data.
+</div>
+
+<div class="page-break"></div>
+
+<!-- SECTION 3: IMPORTING CONTACTS -->
+<h1>3. Step 1: Importing Your Contact List (Excel / CSV)</h1>
+<p>
+  You can import hundreds or thousands of contacts in seconds using an Excel spreadsheet (<code>.xlsx</code>, <code>.xls</code>) or <code>.csv</code> file.
+</p>
+
+<div class="step-row">
+  <div class="step-bubble">1</div>
+  <div class="step-text">
+    Click <strong>Imports</strong> in the left sidebar menu.
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">2</div>
+  <div class="step-text">
+    <strong>Prepare Your Spreadsheet:</strong> Your file should include column headers like:
+    <table>
+      <thead>
+        <tr>
+          <th>Name (Required)</th>
+          <th>Mobile (Required)</th>
+          <th>Company</th>
+          <th>City</th>
+          <th>Tags / Category</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Sarah Jenkins</td>
+          <td>+61 422 111 222</td>
+          <td>Apex Retail</td>
+          <td>Sydney</td>
+          <td>VIP, Wholesale</td>
+        </tr>
+        <tr>
+          <td>David Miller</td>
+          <td>+61 400 333 444</td>
+          <td>Metro Cafe</td>
+          <td>Melbourne</td>
+          <td>Regular Client</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">3</div>
+  <div class="step-text">
+    <strong>Drag and drop</strong> your Excel file into the upload box on screen.
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">4</div>
+  <div class="step-text">
+    <strong>Set Default Message:</strong> You can type an optional welcome or broadcast message using the <code>[Name]</code> tag (e.g. <code>Hi [Name], welcome to our VIP broadcast!</code>).
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">5</div>
+  <div class="step-text">
+    Click <strong>Import & Queue Campaign</strong>. The system verifies mobile numbers, removes duplicates, and saves them to your directory.
+  </div>
+</div>
+
+<!-- SECTION 4: CUSTOMER DIRECTORY -->
+<h1>4. Step 2: Managing Customer Contacts</h1>
+<p>Click <strong>Customers</strong> in the sidebar to view and search your contact directory.</p>
+
+<div class="ui-mockup">
+  <div class="ui-mockup-header">
+    <span>👥 Customer Directory Toolbar</span>
+    <span>Search & Filters</span>
+  </div>
+  <div class="ui-mockup-body">
+    <p style="margin: 0 0 8px 0; font-size: 13px;">
+      🔍 <strong>Search Bar:</strong> Type any customer name, phone number, company, or city to filter instantly.<br>
+      🔘 <strong>Consent Filters:</strong> Filter contacts by <code>All Contacts</code>, <code>SMS Consented</code>, or <code>Email Consented</code>.<br>
+      ➕ <strong>+ Add Customer Button:</strong> Add individual walk-in clients manually.
+    </p>
+  </div>
+</div>
+
+<h3>Adding a Customer Manually:</h3>
+<ul>
+  <li><strong>Full Name:</strong> Customer's full name (e.g. <code>Michael Smith</code>).</li>
+  <li><strong>Mobile Phone:</strong> Mobile number with country code (e.g. <code>+61 412 000 999</code>).</li>
+  <li><strong>Company / City:</strong> Optional organization name and city.</li>
+  <li><strong>SMS Consent Checkbox:</strong> Ensure "Consents to SMS Broadcasts" is checked so the customer can receive your texts.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- SECTION 5: CREATING EVENTS -->
+<h1>5. Step 3: Scheduling Events & Invitations</h1>
+<p>
+  If you are hosting a sale, conference, VIP night, or webinar, click <strong>Events</strong> in the sidebar to create scheduled event broadcasts.
+</p>
+
+<div class="step-row">
+  <div class="step-bubble">1</div>
+  <div class="step-text">
+    Click <strong>+ Create Event</strong> at the top right of the page.
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">2</div>
+  <div class="step-text">
+    <strong>Fill in the Event Details:</strong>
+    <ul>
+      <li><strong>Event Title:</strong> Name of your event (e.g. <code>Annual VIP Showcase 2026</code>).</li>
+      <li><strong>Event Date & Time:</strong> Select the date and starting time.</li>
+      <li><strong>Venue / Location:</strong> Venue address or online webinar link (e.g. <code>Grand Ballroom, Sydney</code>).</li>
+      <li><strong>Target Audience:</strong> Select who should be invited (e.g. <code>VIP Members</code> or <code>All Customers</code>).</li>
+      <li><strong>SMS Broadcast Message:</strong> Write your text message using dynamic tags like:
+        <br><code>Hi {{name}}, you are invited to {{event}} at {{venue}} on {{date}}!</code>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">3</div>
+  <div class="step-text">
+    Click <strong>Create Event</strong>.
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">4</div>
+  <div class="step-text">
+    When you are ready to send the invitations, simply click <strong>Launch Campaign</strong> on the event card!
+  </div>
+</div>
+
+<!-- SECTION 6: MESSAGE TEMPLATES -->
+<h1>6. Step 4: Reusable Message Templates & Merge Tags</h1>
+<p>
+  Click <strong>Templates</strong> in the sidebar to save frequently used SMS announcements.
+</p>
+
+<h3>Understanding Merge Tags:</h3>
+<p>Merge tags automatically replace placeholder words with each customer's actual personal information:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Merge Tag</th>
+      <th>What It Inserts</th>
+      <th>Example Output in SMS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>{{name}}</code></td>
+      <td>Customer's full name</td>
+      <td>"Hi <strong>Sarah</strong>, your offer is ready!"</td>
+    </tr>
+    <tr>
+      <td><code>{{company}}</code></td>
+      <td>Customer's company name</td>
+      <td>"Special discount for <strong>Apex Retail</strong> team."</td>
+    </tr>
+    <tr>
+      <td><code>{{event}}</code></td>
+      <td>Title of the linked event</td>
+      <td>"Reminder: <strong>Annual VIP Sale</strong> starts soon."</td>
+    </tr>
+    <tr>
+      <td><code>{{venue}}</code></td>
+      <td>Event location or address</td>
+      <td>"Doors open at <strong>Grand Ballroom</strong>."</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout-tip">
+  <strong>💡 Example Template:</strong><br>
+  <code>Hi {{name}}, thank you for choosing {{company}}! Show this SMS at our store for an exclusive 20% discount today only.</code>
+</div>
+
+<div class="page-break"></div>
+
+<!-- SECTION 7: LAUNCHING CAMPAIGNS -->
+<h1>7. Step 5: Launching SMS Broadcast Campaigns</h1>
+<p>
+  When you are ready to broadcast text messages to your audience, navigate to <strong>Campaigns</strong>.
+</p>
+
+<div class="step-row">
+  <div class="step-bubble">1</div>
+  <div class="step-text">
+    Click <strong>+ Create Campaign</strong>.
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">2</div>
+  <div class="step-text">
+    <strong>Set Campaign Parameters:</strong>
+    <ul>
+      <li><strong>Campaign Name:</strong> Name for your broadcast (e.g. <code>Weekend Flash Sale SMS</code>).</li>
+      <li><strong>Channel:</strong> Select <code>SMS (Android SIM)</code>.</li>
+      <li><strong>Linked Event (Optional):</strong> Select an event if this is an invitation, or leave as Standalone.</li>
+      <li><strong>Message Content:</strong> Customize the text message to be sent.</li>
+      <li><strong>Audience Limit:</strong> Enter how many contacts to send to (e.g. <code>50</code>, <code>200</code>, or <code>500</code>).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">3</div>
+  <div class="step-text">
+    Click <strong>Launch & Queue SMS</strong>.
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">4</div>
+  <div class="step-text">
+    The messages immediately appear in the <strong>Live Android SIM Dispatch Queue</strong> at the bottom of the page. Your connected Android phone will pick them up and send them!
+  </div>
+</div>
+
+<!-- SECTION 8: ANDROID APP SETUP -->
+<h1>8. Step 6: Setting Up Your Android Companion Phone</h1>
+<p>
+  Your Android smartphone acts as your private SMS broadcast transmitter using its carrier SIM card.
+</p>
+
+<div class="step-row">
+  <div class="step-bubble">1</div>
+  <div class="step-text">
+    <strong>Install the APK:</strong>
+    Open the provided <code>Pulse Sender.apk</code> installation file on any Android phone (Android 10+) and tap <strong>Install</strong>.
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">2</div>
+  <div class="step-text">
+    <strong>Set the Server Address:</strong>
+    Open the app. On the login screen, tap <strong>🌐 API Gateway Server</strong> and enter the server address provided by your administrator (e.g. <code>https://your-domain.com</code> or local IP).
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">3</div>
+  <div class="step-text">
+    <strong>Log In:</strong> Enter your client <strong>Email</strong> and <strong>Password</strong> and tap <strong>Sign In</strong>.
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-bubble">4</div>
+  <div class="step-text">
+    <strong>Grant Permissions:</strong> When prompted on first launch, tap <strong>Allow</strong> for:
+    <ul>
+      <li><strong>SMS Permission:</strong> Allows the app to send text messages through your SIM card.</li>
+      <li><strong>Notification Permission:</strong> Keeps the app running smoothly in the background.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout-tip">
+  <strong>⚡ Automatic Operation:</strong> Once logged in, your phone automatically connects to your web account. Whenever you launch an SMS campaign from your computer, your phone will automatically send out the messages. You can leave the phone on a desk plugged into its charger.
+</div>
+
+<div class="page-break"></div>
+
+<!-- SECTION 9: TRACKING DELIVERY LOGS -->
+<h1>9. Step 7: Delivery Tracking & Broadcast Audit Logs</h1>
+<p>
+  Click <strong>Logs</strong> in the web sidebar to see an exact record of every text message sent.
+</p>
+
+<div class="ui-mockup">
+  <div class="ui-mockup-header">
+    <span>📋 Live Delivery Audit Trail</span>
+    <span>Filter by Sent / Failed / Pending</span>
+  </div>
+  <div class="ui-mockup-body">
+    <table>
+      <thead>
+        <tr>
+          <th>Recipient</th>
+          <th>Campaign</th>
+          <th>Message Sent</th>
+          <th>Status</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Sarah Jenkins</strong><br><small>+61 422 111 222</small></td>
+          <td>Weekend Sale SMS</td>
+          <td>Hi Sarah, your 20% discount is ready!</td>
+          <td><span class="badge-sent">SENT ✓</span></td>
+          <td>Just now</td>
+        </tr>
+        <tr>
+          <td><strong>David Miller</strong><br><small>+61 400 333 444</small></td>
+          <td>VIP Showcase</td>
+          <td>Hi David, you're invited to Annual Sale!</td>
+          <td><span class="badge-sent">SENT ✓</span></td>
+          <td>2 mins ago</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SECTION 10: BEST PRACTICES & FAQS -->
+<h1>10. Helpful Tips & Frequently Asked Questions</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Question / Scenario</th>
+      <th>Recommended Solution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>How many SMS can I send per day?</strong></td>
+      <td>Most standard mobile carrier plans allow 500 to 2,000 SMS/day. We recommend sending in batches of 100–300 at a time with a 2-second delay between messages.</td>
+    </tr>
+    <tr>
+      <td><strong>Does my phone need an internet connection?</strong></td>
+      <td>Yes. The phone needs Wi-Fi or mobile data to receive message jobs from your web dashboard, and active cellular SIM signal to transmit the SMS.</td>
+    </tr>
+    <tr>
+      <td><strong>Can I lock my phone screen while sending?</strong></td>
+      <td>Yes. Pulse Sender runs as an official Android background service. You can lock your phone and let it send in the background.</td>
+    </tr>
+    <tr>
+      <td><strong>Android stops sending when idle?</strong></td>
+      <td>Go to your phone's <strong>Settings &rarr; Apps &rarr; Pulse Sender &rarr; Battery &rarr; Select "Unrestricted"</strong> so Android doesn't put the app to sleep.</td>
+    </tr>
+    <tr>
+      <td><strong>What if I forget my password?</strong></td>
+      <td>Contact your platform administrator. They can instantly reset your password for you in the Users directory.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div style="margin-top: 40px; text-align: center; font-size: 12px; color: #8E7F75; border-top: 1px solid #EAE0D5; padding-top: 16px;">
+  Pulse Dispatch &bull; Customer User Manual &bull; Confidential &bull; Version 1.0
+</div>
+
+</body>
+</html>

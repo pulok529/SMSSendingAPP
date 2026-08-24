@@ -157,7 +157,14 @@ class AppRepository(context: Context) {
         } catch (_: Exception) {}
     }
 
-    // --- Retrofit API Client ---
+    fun cleanBaseUrl(url: String): String {
+        var clean = url.trim()
+        if (clean.isBlank()) return "http://10.0.2.2:4000/"
+        if (!clean.startsWith("http://", ignoreCase = true) && !clean.startsWith("https://", ignoreCase = true)) {
+            clean = "http://$clean"
+        }
+        return if (clean.endsWith("/")) clean else "$clean/"
+    }
 
     private fun api(baseUrl: String): MobileApi {
         val logger = HttpLoggingInterceptor().apply {
@@ -181,7 +188,7 @@ class AppRepository(context: Context) {
             .addInterceptor(logger)
             .build()
 
-        val cleanUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val cleanUrl = cleanBaseUrl(baseUrl)
 
         return Retrofit.Builder()
             .baseUrl(cleanUrl)
@@ -203,14 +210,19 @@ class AppRepository(context: Context) {
     }
 
     suspend fun login(baseUrl: String, request: LoginRequest): LoginResponse {
+        val cleanUrl = cleanBaseUrl(baseUrl)
         try {
-            return api(baseUrl).login(request)
+            return api(cleanUrl).login(request)
         } catch (e: HttpException) {
             throw Exception(parseError(e, "Invalid email or password."))
         } catch (e: ConnectException) {
-            throw Exception("Unable to reach API server at $baseUrl. Check network connection.")
+            throw Exception("Cannot reach server at $cleanUrl. Check internet connection and Gateway Server URL.")
         } catch (e: SocketTimeoutException) {
-            throw Exception("Connection timed out reaching API server at $baseUrl.")
+            throw Exception("Connection timed out reaching server at $cleanUrl.")
+        } catch (e: java.net.UnknownHostException) {
+            throw Exception("Server address not found. Please verify the Gateway Server URL.")
+        } catch (e: Exception) {
+            throw Exception(e.message ?: "Network error. Please check connection.")
         }
     }
 

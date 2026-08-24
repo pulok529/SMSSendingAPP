@@ -16,6 +16,8 @@ import com.pulsedispatch.sender.data.SmsJobDto
 import com.pulsedispatch.sender.data.SupportTicket
 import com.pulsedispatch.sender.data.UserProfile
 import com.pulsedispatch.sender.service.PulseBackgroundService
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -51,6 +54,11 @@ data class MainUiState(
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AppRepository(application)
     private val timeFormat = SimpleDateFormat("hh:mm:ss a", Locale.getDefault())
+    private val dispatchMutex = Mutex()
+
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        appendLog(LogType.ERROR, "System Guard", throwable.message ?: "Transient network exception safely recovered.")
+    }
 
     private val _uiState = MutableStateFlow(
         MainUiState(
@@ -113,19 +121,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // --- Full Sync ---
 
     fun syncAllData() {
-        viewModelScope.launch {
-            fetchProfile()
-            fetchStats()
-            fetchTickets()
-            fetchLogs()
-            refreshConnection()
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            try {
+                fetchProfile()
+                fetchStats()
+                fetchTickets()
+                fetchLogs()
+                refreshConnection()
+            } catch (_: Exception) {}
         }
     }
 
     // --- Web App API Authentication ---
 
     fun login(email: String, pass: String, serverUrl: String? = null) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             _uiState.value = _uiState.value.copy(loginLoading = true, loginError = null)
             try {
                 val urlToUse = serverUrl?.trim()?.ifBlank { null } ?: _uiState.value.config.baseUrl
@@ -143,7 +153,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     .take(2)
                     .map { it.first().uppercase() }
                     .joinToString("")
-                    .ifEmpty { "PA" }
+                    .ifEmpty { "PS" }
 
                 val updatedProfile = _uiState.value.profile.copy(
                     id = res.user.id,
@@ -172,9 +182,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     loginLoading = false,
-                    loginError = e.message ?: "Authentication failed."
+                    loginError = e.message ?: "Authentication failed. Check credentials and server URL."
                 )
                 appendLog(LogType.ERROR, "Login Failed", e.message ?: "Unknown authentication error")
+            } finally {
+                _uiState.value = _uiState.value.copy(loginLoading = false)
             }
         }
     }
@@ -195,7 +207,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // --- Profile & Account ---
 
     fun fetchProfile() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             try {
                 val live = repository.fetchProfile(_uiState.value.config.baseUrl)
                 _uiState.value = _uiState.value.copy(profile = live)
@@ -204,7 +216,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateProfile(profile: UserProfile, onResult: ((String?) -> Unit)? = null) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             _uiState.value = _uiState.value.copy(isProfileSaving = true)
             try {
                 val updated = repository.updateProfile(_uiState.value.config.baseUrl, profile)
@@ -215,12 +227,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(isProfileSaving = false)
                 appendLog(LogType.ERROR, "Profile Update Failed", e.message ?: "Failed to update profile.")
                 onResult?.invoke(e.message ?: "Failed to update profile.")
+            } finally {
+                _uiState.value = _uiState.value.copy(isProfileSaving = false)
             }
         }
     }
 
     fun changePassword(oldPass: String, newPass: String, onResult: (String?, Boolean) -> Unit) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             try {
                 val msg = repository.changePassword(_uiState.value.config.baseUrl, oldPass, newPass)
                 appendLog(LogType.SUCCESS, "Password Changed", "Account password updated.")
@@ -235,7 +249,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // --- Stats & Connection ---
 
     fun fetchStats() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             try {
                 val stats = repository.fetchStats(_uiState.value.config.baseUrl)
                 _uiState.value = _uiState.value.copy(
@@ -247,7 +261,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshConnection() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             _uiState.value = _uiState.value.copy(isConnecting = true)
             try {
                 val config = _uiState.value.config
@@ -275,13 +289,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     isOnline = false,
                     isConnecting = false
                 )
-                appendLog(LogType.ERROR, "Connection Error", e.message ?: "Failed to reach server.")
+                appendLog(LogType.ERROR, "Connection Notice", e.message ?: "Unable to reach server.")
+            } finally {
+                _uiState.value = _uiState.value.copy(isConnecting = false)
             }
         }
     }
 
     fun registerDevice() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             _uiState.value = _uiState.value.copy(isConnecting = true)
             try {
                 val response = repository.register(_uiState.value.config)
@@ -296,12 +312,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isConnecting = false)
                 appendLog(LogType.ERROR, "Registration Failed", e.message ?: "Registration error")
+            } finally {
+                _uiState.value = _uiState.value.copy(isConnecting = false)
             }
         }
     }
 
     fun sendHeartbeat() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             try {
                 val config = _uiState.value.config
                 require(config.deviceId.isNotBlank()) { "Please register the device first." }
@@ -315,10 +333,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- SMS Jobs & Queue Processing ---
+    // --- SMS Jobs & Queue Processing (Mutex Protected) ---
 
     fun fetchJobs() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             _uiState.value = _uiState.value.copy(isFetching = true)
             try {
                 val config = _uiState.value.config
@@ -338,38 +356,54 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isFetching = false)
                 appendLog(LogType.ERROR, "Job Fetch Failed", e.message ?: "Network error fetching jobs.")
+            } finally {
+                _uiState.value = _uiState.value.copy(isFetching = false)
             }
         }
     }
 
     fun processQueue() {
-        viewModelScope.launch {
-            val jobs = _uiState.value.jobs
-            if (jobs.isEmpty()) {
-                appendLog(LogType.INFO, "Queue Empty", "No jobs to process.")
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            // Anti-Hang Mutex: Prevent parallel execution from multiple buttons or timers
+            if (!dispatchMutex.tryLock()) {
                 return@launch
             }
 
-            _uiState.value = _uiState.value.copy(isProcessing = true)
-            val config = _uiState.value.config
-
-            jobs.forEach { job ->
-                processSingleJob(config, job)
-            }
-
-            // Refresh jobs and stats after processing
             try {
-                val refreshed = repository.fetchJobs(config)
-                val stats = repository.fetchStats(config.baseUrl)
-                _uiState.value = _uiState.value.copy(
-                    jobs = refreshed,
-                    isProcessing = false,
-                    sentToday = stats.sentToday,
-                    failedToday = stats.failedToday
-                )
-                appendLog(LogType.SUCCESS, "Queue Complete", "Finished processing queue. ${refreshed.size} remaining.")
-            } catch (_: Exception) {
+                val jobs = _uiState.value.jobs
+                if (jobs.isEmpty()) {
+                    appendLog(LogType.INFO, "Queue Empty", "No jobs to process.")
+                    return@launch
+                }
+
+                _uiState.value = _uiState.value.copy(isProcessing = true)
+                val config = _uiState.value.config
+
+                for (job in jobs) {
+                    processSingleJob(config, job)
+                    // Safe pause between SMS dispatches to avoid carrier congestion
+                    delay(1200L)
+                }
+
+                // Refresh jobs and stats after processing
+                try {
+                    val refreshed = repository.fetchJobs(config)
+                    val stats = repository.fetchStats(config.baseUrl)
+                    _uiState.value = _uiState.value.copy(
+                        jobs = refreshed,
+                        isProcessing = false,
+                        sentToday = stats.sentToday,
+                        failedToday = stats.failedToday
+                    )
+                    appendLog(LogType.SUCCESS, "Queue Complete", "Finished processing queue. ${refreshed.size} remaining.")
+                } catch (_: Exception) {
+                    _uiState.value = _uiState.value.copy(isProcessing = false)
+                }
+            } catch (e: Exception) {
+                appendLog(LogType.ERROR, "Queue Dispatch Error", e.message ?: "Error processing queue.")
+            } finally {
                 _uiState.value = _uiState.value.copy(isProcessing = false)
+                dispatchMutex.unlock()
             }
         }
     }
@@ -378,12 +412,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val phoneNumber = job.phoneNumber
 
         if (phoneNumber.isNullOrBlank()) {
-            repository.reportResult(
-                config = config,
-                deliveryId = job.id,
-                status = "FAILED",
-                detail = "Missing phone number for ${job.customerName}."
-            )
+            try {
+                repository.reportResult(
+                    config = config,
+                    deliveryId = job.id,
+                    status = "FAILED",
+                    detail = "Missing phone number for ${job.customerName}."
+                )
+            } catch (_: Exception) {}
             _uiState.value = _uiState.value.copy(failedToday = _uiState.value.failedToday + 1)
             appendLog(LogType.ERROR, "Delivery Failed", "Missing phone number for ${job.customerName}")
             return
@@ -402,12 +438,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(sentToday = _uiState.value.sentToday + 1)
             appendLog(LogType.SUCCESS, "SMS Sent", "Delivered to ${job.customerName} ($phoneNumber)")
         } catch (e: Exception) {
-            repository.reportResult(
-                config = config,
-                deliveryId = job.id,
-                status = "FAILED",
-                detail = e.message ?: "SMS failure"
-            )
+            try {
+                repository.reportResult(
+                    config = config,
+                    deliveryId = job.id,
+                    status = "FAILED",
+                    detail = e.message ?: "SMS failure"
+                )
+            } catch (_: Exception) {}
             _uiState.value = _uiState.value.copy(failedToday = _uiState.value.failedToday + 1)
             appendLog(LogType.ERROR, "SMS Dispatch Error", "Failed sending to $phoneNumber: ${e.message}")
         }
@@ -416,7 +454,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // --- Support Tickets ---
 
     fun fetchTickets() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             try {
                 val list = repository.fetchTickets(_uiState.value.config.baseUrl)
                 _uiState.value = _uiState.value.copy(tickets = list)
@@ -431,7 +469,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         description: String,
         onResult: (String?, Boolean) -> Unit
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             _uiState.value = _uiState.value.copy(isTicketSubmitting = true)
             try {
                 val created = repository.createTicket(
@@ -450,8 +488,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 onResult(null, true)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isTicketSubmitting = false)
-                appendLog(LogType.ERROR, "Ticket Submission Failed", e.message ?: "Server error.")
+                appendLog(LogType.ERROR, "Ticket Error", e.message ?: "Failed to submit ticket.")
                 onResult(e.message ?: "Failed to submit ticket.", false)
+            } finally {
+                _uiState.value = _uiState.value.copy(isTicketSubmitting = false)
             }
         }
     }
@@ -459,7 +499,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // --- Activity Logs ---
 
     fun fetchLogs() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             try {
                 val list = repository.fetchLogs(_uiState.value.config.baseUrl)
                 if (list.isNotEmpty()) {
@@ -480,11 +520,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startAutomationLoops() {
         autoFetchJob?.cancel()
-        autoFetchJob = viewModelScope.launch {
+        autoFetchJob = viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
             while (isActive) {
-                val config = _uiState.value.config
-                if (config.autoFetch && _uiState.value.isLoggedIn && config.deviceId.isNotBlank()) {
-                    try {
+                try {
+                    val config = _uiState.value.config
+                    if (config.autoFetch && _uiState.value.isLoggedIn && config.deviceId.isNotBlank()) {
                         val jobs = repository.fetchJobs(config)
                         val stats = repository.fetchStats(config.baseUrl)
                         _uiState.value = _uiState.value.copy(
@@ -495,23 +535,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (config.autoProcess && jobs.isNotEmpty()) {
                             processQueue()
                         }
-                    } catch (_: Exception) {}
-                }
-                delay(config.autoFetchIntervalSeconds * 1000L)
+                    }
+                } catch (_: Exception) {}
+
+                val intervalSec = _uiState.value.config.autoFetchIntervalSeconds.coerceAtLeast(5)
+                delay(intervalSec * 1000L)
             }
         }
     }
 
     private fun startBackgroundServiceIfEnabled() {
-        if (_uiState.value.config.backgroundService) {
-            val app = getApplication<Application>()
-            val intent = Intent(app, PulseBackgroundService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                app.startForegroundService(intent)
-            } else {
-                app.startService(intent)
+        try {
+            if (_uiState.value.config.backgroundService) {
+                val app = getApplication<Application>()
+                val intent = Intent(app, PulseBackgroundService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    app.startForegroundService(intent)
+                } else {
+                    app.startService(intent)
+                }
             }
-        }
+        } catch (_: Exception) {}
     }
 
     private fun appendLog(type: LogType, title: String, detail: String) {
@@ -525,8 +569,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             timeFormatted = timeFormat.format(Date(now))
         )
         _uiState.value = _uiState.value.copy(logs = listOf(item) + _uiState.value.logs)
-        viewModelScope.launch {
-            repository.sendLog(_uiState.value.config.baseUrl, type, title, detail, _uiState.value.config.deviceId)
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            try {
+                repository.sendLog(_uiState.value.config.baseUrl, type, title, detail, _uiState.value.config.deviceId)
+            } catch (_: Exception) {}
         }
     }
 }

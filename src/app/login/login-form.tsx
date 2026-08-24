@@ -11,13 +11,14 @@ const apiBaseUrl =
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("pulak@example.com");
-  const [password, setPassword] = useState("admin12345");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!email || !password) return;
     setIsSubmitting(true);
     setMessage("");
 
@@ -29,21 +30,21 @@ export function LoginForm() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          email: email.trim(),
           password,
         }),
       });
       const data = (await response.json()) as { error?: string };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Login failed.");
+        throw new Error(data.error ?? "Invalid email or password.");
       }
 
       const nextPath = searchParams.get("next");
       router.replace(nextPath?.startsWith("/") ? nextPath : "/dashboard");
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Login failed.");
+      setMessage(error instanceof Error ? error.message : "Unable to reach server. Please check connection.");
     } finally {
       setIsSubmitting(false);
     }
@@ -52,11 +53,13 @@ export function LoginForm() {
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
       <label className={styles.label}>
-        Email
+        Email Address
         <input
           className={styles.field}
           type="email"
+          required
           autoComplete="email"
+          placeholder="e.g. client@yourbusiness.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
@@ -66,12 +69,14 @@ export function LoginForm() {
         <input
           className={styles.field}
           type="password"
+          required
           autoComplete="current-password"
+          placeholder="••••••••"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
       </label>
-      <button className={styles.button} type="submit" disabled={isSubmitting}>
+      <button className={styles.button} type="submit" disabled={isSubmitting || !email || !password}>
         {isSubmitting ? "Signing in..." : "Sign in"}
       </button>
       {message ? <div className={styles.message}>{message}</div> : null}

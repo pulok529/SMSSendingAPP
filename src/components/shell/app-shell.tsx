@@ -74,11 +74,11 @@ export function AppShell({
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <span className={styles.brandLabel}>Customer Broadcast Hub</span>
-          <div className={styles.brandTitle}>Pulse Dispatch</div>
+          <span className={styles.brandLabel}>⚡ SMS & Broadcast Gateway</span>
+          <div className={styles.brandTitle}>Pulse Sender</div>
           <p className={styles.brandText}>
-            Upload clients, build event campaigns, and push SMS from your linked
-            Android device while email sends stay tracked in one dashboard.
+            Import clients, schedule event campaigns, and dispatch live SMS from your linked
+            Android phone.
           </p>
         </div>
 

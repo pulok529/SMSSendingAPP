@@ -6,11 +6,11 @@ export default function LoginPage() {
   return (
     <main className={styles.page}>
       <section className={styles.panel}>
-        <div className={styles.eyebrow}>Pulse Dispatch</div>
-        <h1 className={styles.title}>Sign in to send SMS</h1>
+        <div className={styles.eyebrow}>⚡ Pulse Sender</div>
+        <h1 className={styles.title}>Sign in to your account</h1>
         <p className={styles.text}>
-          Admins and approved senders can import Excel contacts, prepare
-          personalized messages, and queue Android SMS jobs.
+          Access your customer directory, prepare personalized broadcast messages,
+          and dispatch SMS through your linked Android gateway.
         </p>
         <Suspense>
           <LoginForm />

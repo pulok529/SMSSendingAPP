@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pulse Dispatch",
-  description: "Customer import, event campaigns, and mobile-driven SMS dispatch",
+  title: "Pulse Sender — SMS & Multichannel Dispatch Platform",
+  description: "Pulse Sender: Customer directory, event broadcasts, message templates, and Android SIM SMS gateway.",
 };
 
 export default function RootLayout({

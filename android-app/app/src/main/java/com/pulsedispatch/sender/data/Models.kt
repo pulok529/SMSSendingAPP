@@ -46,11 +46,13 @@ data class UserProfile(
     val id: String = "usr_1",
     val name: String = "Pulak Ahmed",
     val email: String = "pulak@example.com",
+    val company: String? = "Pulse Dispatch Admin",
     val dateOfBirth: String = "01 Jan 1995",
     val phone: String = "+880 1711-123456",
     val gender: String = "Male",
     val address: String = "Dhaka, Bangladesh",
-    val role: String = "PRO",
+    val role: String = "SUPERADMIN",
+    val isActive: Boolean = true,
     val avatarInitials: String = "PA"
 )
 
@@ -104,7 +106,10 @@ data class UserDto(
     val id: String,
     val name: String,
     val email: String,
-    val role: String
+    val role: String,
+    val company: String? = null,
+    val isActive: Boolean? = true,
+    val phone: String? = null
 )
 
 @Serializable
@@ -165,4 +170,106 @@ data class JobResultRequest(
 @Serializable
 data class JobResultResponse(
     val ok: Boolean = true
+)
+
+@Serializable
+data class UserProfileDto(
+    val id: String,
+    val name: String,
+    val email: String,
+    val role: String,
+    val company: String? = null,
+    val isActive: Boolean? = true,
+    val phone: String? = null,
+    val dateOfBirth: String? = null,
+    val gender: String? = null,
+    val address: String? = null,
+    val createdAt: String? = null
+)
+
+@Serializable
+data class ProfileResponse(
+    val user: UserProfileDto? = null,
+    val ok: Boolean? = true
+)
+
+@Serializable
+data class UpdateProfileRequest(
+    val name: String? = null,
+    val phone: String? = null,
+    val dateOfBirth: String? = null,
+    val gender: String? = null,
+    val address: String? = null
+)
+
+@Serializable
+data class ChangePasswordRequest(
+    val oldPassword: String,
+    val newPassword: String
+)
+
+@Serializable
+data class ChangePasswordResponse(
+    val ok: Boolean = true,
+    val message: String? = null
+)
+
+@Serializable
+data class MobileStatsDto(
+    val sentToday: Int = 0,
+    val pending: Int = 0,
+    val failedToday: Int = 0
+)
+
+@Serializable
+data class SupportTicketDto(
+    val id: String,
+    val subject: String,
+    val category: String,
+    val priority: String,
+    val description: String,
+    val status: String,
+    val timestamp: String
+)
+
+@Serializable
+data class TicketsResponse(
+    val tickets: List<SupportTicketDto> = emptyList()
+)
+
+@Serializable
+data class CreateTicketRequest(
+    val subject: String,
+    val category: String,
+    val priority: String,
+    val description: String
+)
+
+@Serializable
+data class CreateTicketResponse(
+    val ok: Boolean = true,
+    val ticket: SupportTicketDto
+)
+
+@Serializable
+data class MobileLogDto(
+    val id: String,
+    val type: String,
+    val title: String,
+    val detail: String,
+    val timestampMillis: Long,
+    val timeFormatted: String
+)
+
+@Serializable
+data class LogsResponse(
+    val logs: List<MobileLogDto> = emptyList()
+)
+
+@Serializable
+data class SendLogRequest(
+    val type: String,
+    val title: String,
+    val detail: String,
+    val deviceId: String? = null
 )

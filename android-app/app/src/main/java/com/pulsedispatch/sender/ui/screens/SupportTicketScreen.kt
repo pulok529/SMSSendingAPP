@@ -68,7 +68,8 @@ import java.util.UUID
 @Composable
 fun SupportTicketScreen(
     tickets: List<SupportTicket>,
-    onSubmitTicket: (SupportTicket) -> Unit,
+    isSubmitting: Boolean = false,
+    onSubmitTicket: (String, String, String, String, (String?, Boolean) -> Unit) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -77,6 +78,7 @@ fun SupportTicketScreen(
     var priority by remember { mutableStateOf("Medium") }
     var description by remember { mutableStateOf("") }
     var submitSuccess by remember { mutableStateOf(false) }
+    var submitError by remember { mutableStateOf<String?>(null) }
 
     val categories = listOf("Connection Issue", "SMS Dispatch", "Account & Setup", "Billing", "Other")
     val priorities = listOf("Low", "Medium", "High")
@@ -292,25 +294,58 @@ fun SupportTicketScreen(
                         }
                     }
 
+                    if (submitSuccess) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = SuccessGreenBg
+                        ) {
+                            Text(
+                                text = "Ticket submitted successfully and saved to database!",
+                                color = SuccessGreen,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+
+                    if (submitError != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = ErrorRedBg
+                        ) {
+                            Text(
+                                text = submitError!!,
+                                color = ErrorRed,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(20.dp))
 
                     PulsePrimaryButton(
                         text = "Submit Ticket",
+                        isLoading = isSubmitting,
                         enabled = subject.isNotBlank() && description.isNotBlank(),
                         onClick = {
-                            val newTicket = SupportTicket(
-                                id = "#TKT-${(100..999).random()}",
-                                subject = subject,
-                                category = category,
-                                priority = priority,
-                                description = description,
-                                status = "OPEN",
-                                timestamp = "Just now"
-                            )
-                            onSubmitTicket(newTicket)
-                            subject = ""
-                            description = ""
-                            submitSuccess = true
+                            submitSuccess = false
+                            submitError = null
+                            onSubmitTicket(subject.trim(), category, priority, description.trim()) { err, success ->
+                                if (success) {
+                                    subject = ""
+                                    description = ""
+                                    submitSuccess = true
+                                } else {
+                                    submitError = err ?: "Failed to submit ticket."
+                                }
+                            }
                         }
                     )
                 }
@@ -319,7 +354,7 @@ fun SupportTicketScreen(
 
                 // My Tickets Section
                 Text(
-                    text = "MY TICKETS",
+                    text = "MY TICKETS (${tickets.size})",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = OrangePrimary,
@@ -328,9 +363,41 @@ fun SupportTicketScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                tickets.forEach { ticket ->
-                    TicketCard(ticket = ticket)
-                    Spacer(modifier = Modifier.height(10.dp))
+                if (tickets.isEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        color = CardWhite,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(text = "🎫", fontSize = 32.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No support tickets submitted yet",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = DarkBrown
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Submitted tickets will appear here with live resolution status.",
+                                fontSize = 12.sp,
+                                color = MutedBrown,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    tickets.forEach { ticket ->
+                        TicketCard(ticket = ticket)
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))

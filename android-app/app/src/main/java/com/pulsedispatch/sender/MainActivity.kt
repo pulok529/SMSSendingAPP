@@ -121,7 +121,9 @@ class MainActivity : ComponentActivity() {
 
                             AppScreen.PROFILE -> ProfileScreen(
                                 profile = uiState.profile,
-                                onSaveProfile = { viewModel.updateProfile(it) },
+                                isSaving = uiState.isProfileSaving,
+                                onSaveProfile = { profile, onResult -> viewModel.updateProfile(profile, onResult) },
+                                onChangePassword = { oldPass, newPass, onResult -> viewModel.changePassword(oldPass, newPass, onResult) },
                                 onBack = { viewModel.navigateTo(AppScreen.DASHBOARD) }
                             )
 
@@ -135,7 +137,10 @@ class MainActivity : ComponentActivity() {
 
                             AppScreen.TICKET -> SupportTicketScreen(
                                 tickets = uiState.tickets,
-                                onSubmitTicket = { viewModel.submitTicket(it) },
+                                isSubmitting = uiState.isTicketSubmitting,
+                                onSubmitTicket = { subject, category, priority, description, onResult ->
+                                    viewModel.submitTicket(subject, category, priority, description, onResult)
+                                },
                                 onBack = { viewModel.navigateTo(AppScreen.DASHBOARD) }
                             )
                         }

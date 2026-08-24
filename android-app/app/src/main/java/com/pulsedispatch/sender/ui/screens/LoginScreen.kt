@@ -1,6 +1,7 @@
 package com.pulsedispatch.sender.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -74,8 +75,8 @@ fun LoginScreen(
     onLogin: (String, String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var email by remember { mutableStateOf(initialEmail.ifBlank { "pulak@example.com" }) }
-    var password by remember { mutableStateOf("admin12345") }
+    var email by remember(initialEmail) { mutableStateOf(initialEmail) }
+    var password by remember { mutableStateOf("") }
     var serverUrl by remember { mutableStateOf(initialServerUrl.ifBlank { "http://10.0.2.2:4000" }) }
     var passwordVisible by remember { mutableStateOf(false) }
     var showServerSettings by remember { mutableStateOf(false) }
@@ -133,20 +134,37 @@ fun LoginScreen(
 
             // Error notice if login fails
             if (!errorMessage.isNullOrBlank()) {
+                val cleanError = if (errorMessage.contains("\"message\": \"")) {
+                    errorMessage.substringAfter("\"message\": \"").substringBefore("\"")
+                } else if (errorMessage.startsWith("{") || errorMessage.startsWith("[")) {
+                    "Invalid input or credentials."
+                } else {
+                    errorMessage
+                }
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp),
                     shape = RoundedCornerShape(16.dp),
-                    color = ErrorRedBg
+                    color = Color(0xFFFEE2E2),
+                    border = BorderStroke(1.dp, Color(0xFFF87171))
                 ) {
-                    Text(
-                        text = errorMessage,
-                        color = ErrorRed,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(14.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⚠",
+                            fontSize = 18.sp,
+                            modifier = Modifier.padding(end = 10.dp)
+                        )
+                        Text(
+                            text = cleanError,
+                            color = Color(0xFF991B1B),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
@@ -205,12 +223,23 @@ fun LoginScreen(
                     )
                 },
                 trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                            tint = OrangePrimary
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (password.isNotEmpty()) {
+                            IconButton(onClick = { password = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear password",
+                                    tint = MutedBrown
+                                )
+                            }
+                        }
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                tint = OrangePrimary
+                            )
+                        }
                     }
                 },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),

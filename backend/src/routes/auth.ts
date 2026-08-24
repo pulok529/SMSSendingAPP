@@ -9,7 +9,7 @@ import {
   authCookieName,
   verifySessionToken,
 } from "../lib/session";
-import { verifyPassword } from "../lib/password";
+import { hashPassword, verifyPassword } from "../lib/password";
 
 export const authRouter = Router();
 
@@ -29,6 +29,13 @@ authRouter.post("/login", async (request, response, next) => {
 
     if (!user || !user.passwordHash) {
       response.status(401).json({ error: "Invalid email or password." });
+      return;
+    }
+
+    if (user.isActive === false) {
+      response.status(403).json({
+        error: "Your account has been disabled. Please contact administrator.",
+      });
       return;
     }
 
@@ -53,6 +60,9 @@ authRouter.post("/login", async (request, response, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        company: user.company,
+        isActive: user.isActive,
+        phone: user.phone,
       },
     });
   } catch (error) {
@@ -65,9 +75,26 @@ authRouter.post("/logout", (_request, response) => {
   response.json({ ok: true });
 });
 
+const updateProfileSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  phone: z.string().trim().optional(),
+  dateOfBirth: z.string().trim().optional(),
+  gender: z.string().trim().optional(),
+  address: z.string().trim().optional(),
+});
+
+const changePasswordSchema = z.object({
+  oldPassword: z.string().min(1),
+  newPassword: z.string().min(6, "New password must be at least 6 characters"),
+});
+
 authRouter.get("/me", async (request, response, next) => {
   try {
-    const token = readCookie(request.headers.cookie, authCookieName);
+    const bearerHeader = request.headers.authorization;
+    const bearerToken = bearerHeader?.startsWith("Bearer ")
+      ? bearerHeader.substring(7).trim()
+      : undefined;
+    const token = bearerToken || readCookie(request.headers.cookie, authCookieName);
     const session = verifySessionToken(token);
 
     if (!session) {
@@ -84,6 +111,14 @@ authRouter.get("/me", async (request, response, next) => {
         name: true,
         email: true,
         role: true,
+        company: true,
+        isActive: true,
+        phone: true,
+        dateOfBirth: true,
+        gender: true,
+        address: true,
+        notes: true,
+        createdAt: true,
       },
     });
 
@@ -92,7 +127,101 @@ authRouter.get("/me", async (request, response, next) => {
       return;
     }
 
+    if (user.isActive === false) {
+      response.status(403).json({
+        error: "Your account has been disabled. Please contact administrator.",
+      });
+      return;
+    }
+
     response.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.put("/profile", async (request, response, next) => {
+  try {
+    const bearerHeader = request.headers.authorization;
+    const bearerToken = bearerHeader?.startsWith("Bearer ")
+      ? bearerHeader.substring(7).trim()
+      : undefined;
+    const token = bearerToken || readCookie(request.headers.cookie, authCookieName);
+    const session = verifySessionToken(token);
+
+    if (!session) {
+      response.status(401).json({ error: "Login required." });
+      return;
+    }
+
+    const payload = updateProfileSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id: session.userId },
+      data: {
+        ...(payload.name !== undefined ? { name: payload.name } : {}),
+        ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
+        ...(payload.dateOfBirth !== undefined ? { dateOfBirth: payload.dateOfBirth } : {}),
+        ...(payload.gender !== undefined ? { gender: payload.gender } : {}),
+        ...(payload.address !== undefined ? { address: payload.address } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        dateOfBirth: true,
+        gender: true,
+        address: true,
+        createdAt: true,
+      },
+    });
+
+    response.json({ ok: true, user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.put("/password", async (request, response, next) => {
+  try {
+    const bearerHeader = request.headers.authorization;
+    const bearerToken = bearerHeader?.startsWith("Bearer ")
+      ? bearerHeader.substring(7).trim()
+      : undefined;
+    const token = bearerToken || readCookie(request.headers.cookie, authCookieName);
+    const session = verifySessionToken(token);
+
+    if (!session) {
+      response.status(401).json({ error: "Login required." });
+      return;
+    }
+
+    const payload = changePasswordSchema.parse(request.body);
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+    });
+
+    if (!user || !user.passwordHash) {
+      response.status(401).json({ error: "User account not found." });
+      return;
+    }
+
+    const valid = await verifyPassword(payload.oldPassword, user.passwordHash);
+    if (!valid) {
+      response.status(400).json({ error: "Current password is incorrect." });
+      return;
+    }
+
+    const newHash = await hashPassword(payload.newPassword);
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { passwordHash: newHash },
+    });
+
+    response.json({ ok: true, message: "Password updated successfully." });
   } catch (error) {
     next(error);
   }

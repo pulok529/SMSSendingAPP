@@ -101,18 +101,29 @@ fun ActivityLogScreen(
         )
     }
 
-    // Filter logs: Type filter and sort SUCCESS entries first
-    val typeFilteredLogs = if (selectedType == LogType.ALL) {
-        logs
-    } else {
-        logs.filter { it.type == selectedType }
+    // 1. Filter logs by Date
+    val dateFilteredLogs = logs.filter { item ->
+        val itemCal = java.util.Calendar.getInstance().apply { timeInMillis = item.timestampMillis }
+        if (filter.period == DateFilterOption.CURRENT_DATE) {
+            val todayCal = java.util.Calendar.getInstance()
+            itemCal.get(java.util.Calendar.YEAR) == todayCal.get(java.util.Calendar.YEAR) &&
+            itemCal.get(java.util.Calendar.DAY_OF_YEAR) == todayCal.get(java.util.Calendar.DAY_OF_YEAR)
+        } else {
+            val fromOk = filter.fromDateMillis?.let { item.timestampMillis >= it } ?: true
+            val toOk = filter.toDateMillis?.let { item.timestampMillis <= it } ?: true
+            fromOk && toOk
+        }
     }
 
-    // Sort: SUCCESS first, then by timestamp descending
-    val sortedLogs = typeFilteredLogs.sortedWith(
-        compareByDescending<ActivityLogItem> { it.type == LogType.SUCCESS }
-            .thenByDescending { it.timestampMillis }
-    )
+    // 2. Filter by Type
+    val typeFilteredLogs = if (selectedType == LogType.ALL) {
+        dateFilteredLogs
+    } else {
+        dateFilteredLogs.filter { it.type == selectedType }
+    }
+
+    // Sort by timestamp descending
+    val sortedLogs = typeFilteredLogs.sortedByDescending { it.timestampMillis }
 
     val totalPages = maxOf(1, ceil(sortedLogs.size.toDouble() / pageSize).toInt())
     val paginatedLogs = sortedLogs

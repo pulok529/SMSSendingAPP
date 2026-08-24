@@ -7,6 +7,7 @@ import {
   Mail,
   PlugZap,
   ScrollText,
+  ShieldCheck,
   Upload,
   Users,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import { LogoutButton } from "./logout-button";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/users", label: "Users & Clients", icon: ShieldCheck },
   { href: "/imports", label: "Imports", icon: Upload },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/events", label: "Events", icon: CalendarRange },

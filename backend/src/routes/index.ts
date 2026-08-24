@@ -7,11 +7,13 @@ import { eventsRouter } from "./events";
 import { healthRouter } from "./health";
 import { importsRouter } from "./imports";
 import { mobileRouter } from "./mobile";
+import { usersRouter } from "./users";
 
 export const apiRouter = Router();
 
 apiRouter.use("/health", healthRouter);
 apiRouter.use("/auth", authRouter);
+apiRouter.use("/users", usersRouter);
 apiRouter.use("/dashboard", dashboardRouter);
 apiRouter.use("/customers", customersRouter);
 apiRouter.use("/events", eventsRouter);

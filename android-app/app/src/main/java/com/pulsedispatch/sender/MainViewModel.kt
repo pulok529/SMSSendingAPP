@@ -42,6 +42,8 @@ data class MainUiState(
     val isConnecting: Boolean = false,
     val isFetching: Boolean = false,
     val isProcessing: Boolean = false,
+    val isProfileSaving: Boolean = false,
+    val isTicketSubmitting: Boolean = false,
     val sentToday: Int = 0,
     val failedToday: Int = 0
 )
@@ -56,8 +58,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             currentScreen = if (repository.isLoggedIn()) AppScreen.DASHBOARD else AppScreen.LOGIN,
             profile = repository.loadProfile(),
             config = repository.loadConfig(),
-            tickets = repository.loadTickets(),
-            logs = createInitialLogs()
+            tickets = repository.loadCachedTickets(),
+            logs = repository.loadCachedLogs().ifEmpty { createInitialLogs() }
         )
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -66,7 +68,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         if (_uiState.value.isLoggedIn) {
-            refreshConnection()
+            syncAllData()
             startBackgroundServiceIfEnabled()
             startAutomationLoops()
         }
@@ -83,14 +85,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 detail = "Gateway client ready for live cellular dispatch.",
                 timestampMillis = now,
                 timeFormatted = timeStr
-            ),
-            ActivityLogItem(
-                id = "log_init_2",
-                type = LogType.INFO,
-                title = "Device Ready",
-                detail = "SIM radio interface and SMSManager online.",
-                timestampMillis = now - 1000,
-                timeFormatted = timeFormat.format(Date(now - 1000))
             )
         )
     }
@@ -99,6 +93,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun navigateTo(screen: AppScreen) {
         _uiState.value = _uiState.value.copy(currentScreen = screen, isSideMenuOpen = false)
+        if (screen == AppScreen.TICKET) {
+            fetchTickets()
+        } else if (screen == AppScreen.ACTIVITY_LOG) {
+            fetchLogs()
+        } else if (screen == AppScreen.PROFILE) {
+            fetchProfile()
+        }
     }
 
     fun openSideMenu() {
@@ -107,6 +108,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun closeSideMenu() {
         _uiState.value = _uiState.value.copy(isSideMenuOpen = false)
+    }
+
+    // --- Full Sync ---
+
+    fun syncAllData() {
+        viewModelScope.launch {
+            fetchProfile()
+            fetchStats()
+            fetchTickets()
+            fetchLogs()
+            refreshConnection()
+        }
     }
 
     // --- Web App API Authentication ---
@@ -152,8 +165,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 appendLog(LogType.SUCCESS, "Web App API Login", "Authenticated as ${res.user.name} (${res.user.email})")
 
-                // 3. Register device and sync with Web App Gateway
-                refreshConnection()
+                // 3. Sync everything
+                syncAllData()
                 startBackgroundServiceIfEnabled()
                 startAutomationLoops()
             } catch (e: Exception) {
@@ -169,15 +182,69 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun logout() {
         repository.setLoggedIn(false)
         repository.saveAuthToken(null)
+        autoFetchJob?.cancel()
         _uiState.value = _uiState.value.copy(
             isLoggedIn = false,
             currentScreen = AppScreen.LOGIN,
-            isSideMenuOpen = false
+            isSideMenuOpen = false,
+            isOnline = false
         )
         appendLog(LogType.INFO, "User Logged Out", "Session ended.")
     }
 
-    // --- Connection & Gateway ---
+    // --- Profile & Account ---
+
+    fun fetchProfile() {
+        viewModelScope.launch {
+            try {
+                val live = repository.fetchProfile(_uiState.value.config.baseUrl)
+                _uiState.value = _uiState.value.copy(profile = live)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun updateProfile(profile: UserProfile, onResult: ((String?) -> Unit)? = null) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isProfileSaving = true)
+            try {
+                val updated = repository.updateProfile(_uiState.value.config.baseUrl, profile)
+                _uiState.value = _uiState.value.copy(profile = updated, isProfileSaving = false)
+                appendLog(LogType.SUCCESS, "Profile Updated", "Account information synchronized with server.")
+                onResult?.invoke(null)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isProfileSaving = false)
+                appendLog(LogType.ERROR, "Profile Update Failed", e.message ?: "Failed to update profile.")
+                onResult?.invoke(e.message ?: "Failed to update profile.")
+            }
+        }
+    }
+
+    fun changePassword(oldPass: String, newPass: String, onResult: (String?, Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val msg = repository.changePassword(_uiState.value.config.baseUrl, oldPass, newPass)
+                appendLog(LogType.SUCCESS, "Password Changed", "Account password updated.")
+                onResult(msg, true)
+            } catch (e: Exception) {
+                appendLog(LogType.ERROR, "Password Change Failed", e.message ?: "Incorrect password.")
+                onResult(e.message ?: "Failed to update password.", false)
+            }
+        }
+    }
+
+    // --- Stats & Connection ---
+
+    fun fetchStats() {
+        viewModelScope.launch {
+            try {
+                val stats = repository.fetchStats(_uiState.value.config.baseUrl)
+                _uiState.value = _uiState.value.copy(
+                    sentToday = stats.sentToday,
+                    failedToday = stats.failedToday
+                )
+            } catch (_: Exception) {}
+        }
+    }
 
     fun refreshConnection() {
         viewModelScope.launch {
@@ -193,11 +260,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 repository.heartbeat(_uiState.value.config, _uiState.value.jobs.size)
                 val freshJobs = repository.fetchJobs(_uiState.value.config)
+                val stats = repository.fetchStats(_uiState.value.config.baseUrl)
 
                 _uiState.value = _uiState.value.copy(
                     isOnline = true,
                     isConnecting = false,
-                    jobs = freshJobs
+                    jobs = freshJobs,
+                    sentToday = stats.sentToday,
+                    failedToday = stats.failedToday
                 )
                 appendLog(LogType.SUCCESS, "Connection Established", "Online and synced with backend gateway.")
             } catch (e: Exception) {
@@ -256,10 +326,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     registerDevice()
                 }
                 val jobs = repository.fetchJobs(_uiState.value.config)
+                val stats = repository.fetchStats(_uiState.value.config.baseUrl)
                 _uiState.value = _uiState.value.copy(
                     jobs = jobs,
                     isFetching = false,
-                    isOnline = true
+                    isOnline = true,
+                    sentToday = stats.sentToday,
+                    failedToday = stats.failedToday
                 )
                 appendLog(LogType.INFO, "Fetched SMS Jobs", "Loaded ${jobs.size} job(s) from server.")
             } catch (e: Exception) {
@@ -284,10 +357,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 processSingleJob(config, job)
             }
 
-            // Refresh jobs after processing
+            // Refresh jobs and stats after processing
             try {
                 val refreshed = repository.fetchJobs(config)
-                _uiState.value = _uiState.value.copy(jobs = refreshed, isProcessing = false)
+                val stats = repository.fetchStats(config.baseUrl)
+                _uiState.value = _uiState.value.copy(
+                    jobs = refreshed,
+                    isProcessing = false,
+                    sentToday = stats.sentToday,
+                    failedToday = stats.failedToday
+                )
                 appendLog(LogType.SUCCESS, "Queue Complete", "Finished processing queue. ${refreshed.size} remaining.")
             } catch (_: Exception) {
                 _uiState.value = _uiState.value.copy(isProcessing = false)
@@ -334,13 +413,63 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- Profile, Config & Tickets ---
+    // --- Support Tickets ---
 
-    fun updateProfile(profile: UserProfile) {
-        repository.saveProfile(profile)
-        _uiState.value = _uiState.value.copy(profile = profile)
-        appendLog(LogType.INFO, "Profile Updated", "Personal info saved.")
+    fun fetchTickets() {
+        viewModelScope.launch {
+            try {
+                val list = repository.fetchTickets(_uiState.value.config.baseUrl)
+                _uiState.value = _uiState.value.copy(tickets = list)
+            } catch (_: Exception) {}
+        }
     }
+
+    fun submitTicket(
+        subject: String,
+        category: String,
+        priority: String,
+        description: String,
+        onResult: (String?, Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isTicketSubmitting = true)
+            try {
+                val created = repository.createTicket(
+                    _uiState.value.config.baseUrl,
+                    subject,
+                    category,
+                    priority,
+                    description
+                )
+                val updatedList = listOf(created) + _uiState.value.tickets.filter { it.id != created.id }
+                _uiState.value = _uiState.value.copy(
+                    tickets = updatedList,
+                    isTicketSubmitting = false
+                )
+                appendLog(LogType.INFO, "Ticket Created", "${created.id} (${created.subject}) submitted.")
+                onResult(null, true)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isTicketSubmitting = false)
+                appendLog(LogType.ERROR, "Ticket Submission Failed", e.message ?: "Server error.")
+                onResult(e.message ?: "Failed to submit ticket.", false)
+            }
+        }
+    }
+
+    // --- Activity Logs ---
+
+    fun fetchLogs() {
+        viewModelScope.launch {
+            try {
+                val list = repository.fetchLogs(_uiState.value.config.baseUrl)
+                if (list.isNotEmpty()) {
+                    _uiState.value = _uiState.value.copy(logs = list)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    // --- Settings & Automation ---
 
     fun updateConfig(config: DeviceConfig) {
         repository.saveConfig(config)
@@ -348,15 +477,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         appendLog(LogType.INFO, "Settings Saved", "Gateway parameters updated.")
         startAutomationLoops()
     }
-
-    fun submitTicket(ticket: SupportTicket) {
-        repository.saveTicket(ticket)
-        val updatedList = listOf(ticket) + _uiState.value.tickets
-        _uiState.value = _uiState.value.copy(tickets = updatedList)
-        appendLog(LogType.INFO, "Ticket Created", "${ticket.id} (${ticket.subject}) submitted.")
-    }
-
-    // --- Automation & Background Loops ---
 
     private fun startAutomationLoops() {
         autoFetchJob?.cancel()
@@ -366,7 +486,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (config.autoFetch && _uiState.value.isLoggedIn && config.deviceId.isNotBlank()) {
                     try {
                         val jobs = repository.fetchJobs(config)
-                        _uiState.value = _uiState.value.copy(jobs = jobs)
+                        val stats = repository.fetchStats(config.baseUrl)
+                        _uiState.value = _uiState.value.copy(
+                            jobs = jobs,
+                            sentToday = stats.sentToday,
+                            failedToday = stats.failedToday
+                        )
                         if (config.autoProcess && jobs.isNotEmpty()) {
                             processQueue()
                         }
@@ -400,5 +525,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             timeFormatted = timeFormat.format(Date(now))
         )
         _uiState.value = _uiState.value.copy(logs = listOf(item) + _uiState.value.logs)
+        viewModelScope.launch {
+            repository.sendLog(_uiState.value.config.baseUrl, type, title, detail, _uiState.value.config.deviceId)
+        }
     }
 }

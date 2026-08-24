@@ -55,21 +55,14 @@ import androidx.compose.ui.unit.sp
 import com.pulsedispatch.sender.data.UserProfile
 import com.pulsedispatch.sender.ui.components.PulsePrimaryButton
 import com.pulsedispatch.sender.ui.components.SectionCard
-import com.pulsedispatch.sender.ui.theme.CardBorder
-import com.pulsedispatch.sender.ui.theme.CardWhite
-import com.pulsedispatch.sender.ui.theme.DarkBrown
-import com.pulsedispatch.sender.ui.theme.MutedBrown
-import com.pulsedispatch.sender.ui.theme.OrangeGradient
-import com.pulsedispatch.sender.ui.theme.OrangeLight
-import com.pulsedispatch.sender.ui.theme.OrangePrimary
-import com.pulsedispatch.sender.ui.theme.SuccessGreen
-import com.pulsedispatch.sender.ui.theme.SuccessGreenBg
-import com.pulsedispatch.sender.ui.theme.WarmCream
+import com.pulsedispatch.sender.ui.theme.*
 
 @Composable
 fun ProfileScreen(
     profile: UserProfile,
-    onSaveProfile: (UserProfile) -> Unit,
+    isSaving: Boolean = false,
+    onSaveProfile: (UserProfile, (String?) -> Unit) -> Unit,
+    onChangePassword: (String, String, (String?, Boolean) -> Unit) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -80,6 +73,15 @@ fun ProfileScreen(
     var gender by remember { mutableStateOf(profile.gender) }
     var address by remember { mutableStateOf(profile.address) }
 
+    androidx.compose.runtime.LaunchedEffect(profile) {
+        name = profile.name
+        email = profile.email
+        dob = profile.dateOfBirth
+        phone = profile.phone
+        gender = profile.gender
+        address = profile.address
+    }
+
     var isPasswordExpanded by remember { mutableStateOf(false) }
     var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
@@ -87,6 +89,9 @@ fun ProfileScreen(
     var passwordVisible by remember { mutableStateOf(false) }
 
     var saveNotice by remember { mutableStateOf<String?>(null) }
+    var saveError by remember { mutableStateOf<String?>(null) }
+    var passwordNotice by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = modifier
@@ -408,7 +413,100 @@ fun ProfileScreen(
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
+
+                            if (passwordNotice != null) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = SuccessGreenBg
+                                ) {
+                                    Text(
+                                        text = passwordNotice!!,
+                                        color = SuccessGreen,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(10.dp)
+                                    )
+                                }
+                            }
+
+                            if (passwordError != null) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = ErrorRedBg
+                                ) {
+                                    Text(
+                                        text = passwordError!!,
+                                        color = ErrorRed,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(10.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            PulsePrimaryButton(
+                                text = "Update Password",
+                                enabled = oldPassword.isNotBlank() && newPassword.length >= 6 && newPassword == confirmPassword,
+                                onClick = {
+                                    passwordNotice = null
+                                    passwordError = null
+                                    if (newPassword != confirmPassword) {
+                                        passwordError = "Passwords do not match."
+                                        return@PulsePrimaryButton
+                                    }
+                                    onChangePassword(oldPassword, newPassword) { msg, success ->
+                                        if (success) {
+                                            passwordNotice = msg ?: "Password changed successfully!"
+                                            oldPassword = ""
+                                            newPassword = ""
+                                            confirmPassword = ""
+                                        } else {
+                                            passwordError = msg ?: "Failed to change password."
+                                        }
+                                    }
+                                }
+                            )
                         }
+                    }
+                }
+
+                if (saveNotice != null) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = SuccessGreenBg
+                    ) {
+                        Text(
+                            text = saveNotice!!,
+                            color = SuccessGreen,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+
+                if (saveError != null) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = ErrorRedBg
+                    ) {
+                        Text(
+                            text = saveError!!,
+                            color = ErrorRed,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(12.dp)
+                        )
                     }
                 }
 
@@ -417,24 +515,32 @@ fun ProfileScreen(
                 // Save Changes Button
                 PulsePrimaryButton(
                     text = "Save Changes",
+                    isLoading = isSaving,
                     onClick = {
+                        saveNotice = null
+                        saveError = null
                         val updated = profile.copy(
-                            name = name,
-                            email = email,
-                            dateOfBirth = dob,
-                            phone = phone,
-                            gender = gender,
-                            address = address
+                            name = name.trim(),
+                            email = email.trim(),
+                            dateOfBirth = dob.trim(),
+                            phone = phone.trim(),
+                            gender = gender.trim(),
+                            address = address.trim()
                         )
-                        onSaveProfile(updated)
-                        saveNotice = "Profile updated successfully!"
+                        onSaveProfile(updated) { err ->
+                            if (err == null) {
+                                saveNotice = "Profile updated successfully!"
+                            } else {
+                                saveError = err
+                            }
+                        }
                     }
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "Last updated: Today at 10:47 AM",
+                    text = "Account synced with live database",
                     fontSize = 12.sp,
                     color = MutedBrown
                 )

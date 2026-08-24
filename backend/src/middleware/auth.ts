@@ -5,9 +5,16 @@ export type AuthenticatedRequest = Request & {
   auth: AuthSession;
 };
 
-export function requireAuth(allowedRoles: AuthSession["role"][] = ["ADMIN", "SENDER"]) {
+export function requireAuth(
+  allowedRoles: AuthSession["role"][] = ["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]
+) {
   return (request: Request, response: Response, next: NextFunction) => {
-    const token = readCookie(request.headers.cookie, authCookieName);
+    const bearerHeader = request.headers.authorization;
+    const bearerToken = bearerHeader?.startsWith("Bearer ")
+      ? bearerHeader.substring(7).trim()
+      : undefined;
+
+    const token = bearerToken || readCookie(request.headers.cookie, authCookieName);
     const session = verifySessionToken(token);
 
     if (!session) {

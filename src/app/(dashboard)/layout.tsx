@@ -8,6 +8,11 @@ const routeMeta: Record<string, { title: string; description: string }> = {
     description:
       "Track imports, customer readiness, live device dispatch, and upcoming event communication from one operational dashboard.",
   },
+  "/users": {
+    title: "User & Client Management",
+    description:
+      "Create client accounts, configure profiles, toggle access status, and monitor linked Android sender activity.",
+  },
   "/imports": {
     title: "Import customer spreadsheets",
     description:

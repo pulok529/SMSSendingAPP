@@ -7,7 +7,7 @@ const sessionTtlSeconds = 60 * 60 * 24 * 7;
 export type AuthSession = {
   userId: string;
   email: string;
-  role: "ADMIN" | "SENDER";
+  role: "SUPERADMIN" | "ADMIN" | "CLIENT" | "SENDER";
   exp: number;
 };
 
@@ -69,7 +69,12 @@ export function verifySessionToken(token: string | undefined): AuthSession | nul
       return null;
     }
 
-    if (decoded.role !== "ADMIN" && decoded.role !== "SENDER") {
+    if (
+      decoded.role !== "SUPERADMIN" &&
+      decoded.role !== "ADMIN" &&
+      decoded.role !== "CLIENT" &&
+      decoded.role !== "SENDER"
+    ) {
       return null;
     }
 

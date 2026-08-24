@@ -2,6 +2,7 @@ import { CampaignChannel, DeliveryStatus, DeviceStatus } from "@prisma/client";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
+import { authCookieName, readCookie, verifySessionToken } from "../lib/session";
 
 export const mobileRouter = Router();
 
@@ -229,6 +230,210 @@ mobileRouter.post("/jobs/:deliveryId/result", async (request, response, next) =>
         detail: delivery.detail,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+mobileRouter.get("/stats", async (_request, response, next) => {
+  try {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [sentToday, pending, failedToday] = await Promise.all([
+      prisma.delivery.count({
+        where: {
+          channel: CampaignChannel.SMS,
+          status: DeliveryStatus.SENT,
+          updatedAt: { gte: startOfToday },
+        },
+      }),
+      prisma.delivery.count({
+        where: {
+          channel: CampaignChannel.SMS,
+          status: { in: [DeliveryStatus.PENDING, DeliveryStatus.ASSIGNED] },
+        },
+      }),
+      prisma.delivery.count({
+        where: {
+          channel: CampaignChannel.SMS,
+          status: DeliveryStatus.FAILED,
+          updatedAt: { gte: startOfToday },
+        },
+      }),
+    ]);
+
+    response.json({
+      sentToday,
+      pending,
+      failedToday,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const createTicketSchema = z.object({
+  subject: z.string().trim().min(1),
+  category: z.string().trim().min(1).default("Connection Issue"),
+  priority: z.string().trim().min(1).default("Medium"),
+  description: z.string().trim().min(1),
+});
+
+mobileRouter.get("/tickets", async (_request, response, next) => {
+  try {
+    const tickets = await prisma.ticket.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        user: {
+          select: { name: true, email: true },
+        },
+      },
+    });
+
+    response.json({
+      tickets: tickets.map((t) => ({
+        id: t.ticketNumber,
+        subject: t.subject,
+        category: t.category,
+        priority: t.priority,
+        description: t.description,
+        status: t.status,
+        timestamp: t.createdAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+mobileRouter.post("/tickets", async (request, response, next) => {
+  try {
+    const payload = createTicketSchema.parse(request.body);
+    const bearerHeader = request.headers.authorization;
+    const bearerToken = bearerHeader?.startsWith("Bearer ")
+      ? bearerHeader.substring(7).trim()
+      : undefined;
+    const token = bearerToken || readCookie(request.headers.cookie, authCookieName);
+    const session = verifySessionToken(token);
+
+    let userId = session?.userId;
+    if (!userId) {
+      const defaultUser = await prisma.user.findFirst();
+      if (!defaultUser) {
+        response.status(401).json({ error: "User account required." });
+        return;
+      }
+      userId = defaultUser.id;
+    }
+
+    const count = await prisma.ticket.count();
+    const ticketNumber = `#TKT-${String(count + 1).padStart(3, "0")}`;
+
+    const ticket = await prisma.ticket.create({
+      data: {
+        ticketNumber,
+        userId,
+        subject: payload.subject,
+        category: payload.category,
+        priority: payload.priority,
+        description: payload.description,
+        status: "OPEN",
+      },
+    });
+
+    await prisma.mobileLog.create({
+      data: {
+        userId,
+        type: "INFO",
+        title: "Support Ticket Created",
+        detail: `${ticket.ticketNumber} (${ticket.subject}) submitted to support queue.`,
+      },
+    });
+
+    response.status(201).json({
+      ok: true,
+      ticket: {
+        id: ticket.ticketNumber,
+        subject: ticket.subject,
+        category: ticket.category,
+        priority: ticket.priority,
+        description: ticket.description,
+        status: ticket.status,
+        timestamp: ticket.createdAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const createLogSchema = z.object({
+  type: z.string().trim().default("INFO"),
+  title: z.string().trim().min(1),
+  detail: z.string().trim().min(1),
+  deviceId: z.string().optional(),
+});
+
+mobileRouter.get("/logs", async (_request, response, next) => {
+  try {
+    const logs = await prisma.mobileLog.findMany({
+      orderBy: { timestamp: "desc" },
+      take: 100,
+    });
+
+    response.json({
+      logs: logs.map((l) => ({
+        id: l.id,
+        type: l.type,
+        title: l.title,
+        detail: l.detail,
+        timestampMillis: l.timestamp.getTime(),
+        timeFormatted: l.timestamp.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        }),
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+mobileRouter.post("/logs", async (request, response, next) => {
+  try {
+    const payload = createLogSchema.parse(request.body);
+    const bearerHeader = request.headers.authorization;
+    const bearerToken = bearerHeader?.startsWith("Bearer ")
+      ? bearerHeader.substring(7).trim()
+      : undefined;
+    const token = bearerToken || readCookie(request.headers.cookie, authCookieName);
+    const session = verifySessionToken(token);
+
+    let userId = session?.userId;
+    if (!userId) {
+      const defaultUser = await prisma.user.findFirst();
+      if (defaultUser) {
+        userId = defaultUser.id;
+      }
+    }
+
+    if (userId) {
+      await prisma.mobileLog.create({
+        data: {
+          userId,
+          deviceId: payload.deviceId ?? null,
+          type: payload.type,
+          title: payload.title,
+          detail: payload.detail,
+        },
+      });
+    }
+
+    response.status(201).json({ ok: true });
   } catch (error) {
     next(error);
   }

@@ -39,7 +39,9 @@ enum DeviceStatus {
 }
 
 enum UserRole {
+  SUPERADMIN
   ADMIN
+  CLIENT
   SENDER
 }
 
@@ -48,12 +50,21 @@ model User {
   name         String
   email        String   @unique
   passwordHash String   @default("")
-  role         UserRole @default(SENDER)
+  role         UserRole @default(CLIENT)
+  isActive     Boolean  @default(true)
+  company      String?
+  phone        String?
+  dateOfBirth  String?
+  gender       String?
+  address      String?
+  notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   devices      Device[]
   events       Event[]
   campaigns    Campaign[]
+  tickets      Ticket[]
+  mobileLogs   MobileLog[]
 }
 
 model Device {
@@ -134,4 +145,29 @@ model Delivery {
   timestamp   DateTime       @default(now())
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+}
+
+model Ticket {
+  id           String   @id @default(cuid())
+  ticketNumber String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject      String
+  category     String
+  priority     String   @default("Medium")
+  description  String
+  status       String   @default("OPEN")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model MobileLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId  String?
+  type      String   @default("INFO")
+  title     String
+  detail    String
+  timestamp DateTime @default(now())
 }

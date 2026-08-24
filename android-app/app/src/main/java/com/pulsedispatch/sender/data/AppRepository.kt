@@ -122,40 +122,38 @@ class AppRepository(context: Context) {
 
     // --- Support Tickets Persistence ---
 
-    fun loadTickets(): List<SupportTicket> {
+    fun loadCachedTickets(): List<SupportTicket> {
         val raw = prefs.getString("support_tickets", null)
         if (raw != null) {
             try {
                 return json.decodeFromString(raw)
             } catch (_: Exception) {}
         }
-        return listOf(
-            SupportTicket(
-                id = "#TKT-001",
-                subject = "API Connection Timeout",
-                category = "Connection Issue",
-                priority = "Medium",
-                description = "Experienced latency when fetching jobs during peak hours.",
-                status = "OPEN",
-                timestamp = "2 hours ago"
-            ),
-            SupportTicket(
-                id = "#TKT-000",
-                subject = "Initial Gateway Setup",
-                category = "Account & Setup",
-                priority = "Low",
-                description = "Successfully configured SIM gateway parameters.",
-                status = "CLOSED",
-                timestamp = "Yesterday"
-            )
-        )
+        return emptyList()
     }
 
-    fun saveTicket(ticket: SupportTicket) {
-        val current = loadTickets().toMutableList()
-        current.add(0, ticket)
+    fun saveCachedTickets(tickets: List<SupportTicket>) {
         try {
-            prefs.edit().putString("support_tickets", json.encodeToString(current)).apply()
+            prefs.edit().putString("support_tickets", json.encodeToString(tickets)).apply()
+        } catch (_: Exception) {}
+    }
+
+    // --- Activity Logs Persistence ---
+
+    fun loadCachedLogs(): List<ActivityLogItem> {
+        val raw = prefs.getString("cached_logs", null)
+        if (raw != null) {
+            try {
+                return json.decodeFromString(raw)
+            } catch (_: Exception) {}
+        }
+        return emptyList()
+    }
+
+    fun saveCachedLogs(logs: List<ActivityLogItem>) {
+        try {
+            val trimmed = logs.take(100)
+            prefs.edit().putString("cached_logs", json.encodeToString(trimmed)).apply()
         } catch (_: Exception) {}
     }
 
@@ -193,24 +191,118 @@ class AppRepository(context: Context) {
             .create(MobileApi::class.java)
     }
 
+    private fun parseError(e: HttpException, defaultMsg: String): String {
+        val errorBody = e.response()?.errorBody()?.string()
+        if (!errorBody.isNullOrBlank()) {
+            try {
+                val parsed = json.decodeFromString<ApiErrorResponse>(errorBody)
+                if (!parsed.error.isNullOrBlank()) return parsed.error
+            } catch (_: Exception) {}
+        }
+        return defaultMsg
+    }
+
     suspend fun login(baseUrl: String, request: LoginRequest): LoginResponse {
         try {
             return api(baseUrl).login(request)
         } catch (e: HttpException) {
-            val errorBody = e.response()?.errorBody()?.string()
-            val message = if (!errorBody.isNullOrBlank()) {
-                try {
-                    val parsed = json.decodeFromString<ApiErrorResponse>(errorBody)
-                    parsed.error
-                } catch (_: Exception) {
-                    null
-                }
-            } else null
-            throw Exception(message ?: "Invalid email or password.")
+            throw Exception(parseError(e, "Invalid email or password."))
         } catch (e: ConnectException) {
             throw Exception("Unable to reach API server at $baseUrl. Check network connection.")
         } catch (e: SocketTimeoutException) {
             throw Exception("Connection timed out reaching API server at $baseUrl.")
+        }
+    }
+
+    suspend fun fetchProfile(baseUrl: String): UserProfile {
+        try {
+            val response = api(baseUrl).getProfile()
+            val user = response.user ?: throw Exception("No profile data returned")
+            val initials = user.name.split(" ")
+                .filter { it.isNotBlank() }
+                .take(2)
+                .map { it.first().uppercase() }
+                .joinToString("")
+                .ifEmpty { "PA" }
+
+            val profile = UserProfile(
+                id = user.id,
+                name = user.name,
+                email = user.email,
+                company = user.company,
+                dateOfBirth = user.dateOfBirth ?: "01 Jan 1995",
+                phone = user.phone ?: "+880 1711-123456",
+                gender = user.gender ?: "Male",
+                address = user.address ?: "Dhaka, Bangladesh",
+                role = user.role.uppercase(),
+                isActive = user.isActive ?: true,
+                avatarInitials = initials
+            )
+            saveProfile(profile)
+            return profile
+        } catch (e: HttpException) {
+            throw Exception(parseError(e, "Failed to load profile."))
+        }
+    }
+
+    suspend fun updateProfile(baseUrl: String, profile: UserProfile): UserProfile {
+        try {
+            val response = api(baseUrl).updateProfile(
+                UpdateProfileRequest(
+                    name = profile.name,
+                    phone = profile.phone,
+                    dateOfBirth = profile.dateOfBirth,
+                    gender = profile.gender,
+                    address = profile.address
+                )
+            )
+            val user = response.user ?: throw Exception("Failed to update profile")
+            val initials = user.name.split(" ")
+                .filter { it.isNotBlank() }
+                .take(2)
+                .map { it.first().uppercase() }
+                .joinToString("")
+                .ifEmpty { "PA" }
+
+            val updated = UserProfile(
+                id = user.id,
+                name = user.name,
+                email = user.email,
+                company = user.company ?: profile.company,
+                dateOfBirth = user.dateOfBirth ?: profile.dateOfBirth,
+                phone = user.phone ?: profile.phone,
+                gender = user.gender ?: profile.gender,
+                address = user.address ?: profile.address,
+                role = user.role.uppercase(),
+                isActive = user.isActive ?: true,
+                avatarInitials = initials
+            )
+            saveProfile(updated)
+            return updated
+        } catch (e: HttpException) {
+            throw Exception(parseError(e, "Failed to save profile changes."))
+        }
+    }
+
+    suspend fun changePassword(baseUrl: String, oldPass: String, newPass: String): String {
+        try {
+            val response = api(baseUrl).changePassword(
+                ChangePasswordRequest(
+                    oldPassword = oldPass,
+                    newPassword = newPass
+                )
+            )
+            return response.message ?: "Password changed successfully."
+        } catch (e: HttpException) {
+            throw Exception(parseError(e, "Failed to change password."))
+        }
+    }
+
+    suspend fun fetchStats(baseUrl: String): MobileStatsDto {
+        return try {
+            api(baseUrl).getStats()
+        } catch (_: Exception) {
+            MobileStatsDto()
         }
     }
 
@@ -250,4 +342,124 @@ class AppRepository(context: Context) {
                 detail = detail,
             )
         )
+
+    suspend fun fetchTickets(baseUrl: String): List<SupportTicket> {
+        try {
+            val res = api(baseUrl).getTickets()
+            val list = res.tickets.map { t ->
+                SupportTicket(
+                    id = t.id,
+                    subject = t.subject,
+                    category = t.category,
+                    priority = t.priority,
+                    description = t.description,
+                    status = t.status,
+                    timestamp = formatTimestamp(t.timestamp)
+                )
+            }
+            saveCachedTickets(list)
+            return list
+        } catch (_: Exception) {
+            return loadCachedTickets()
+        }
+    }
+
+    suspend fun createTicket(
+        baseUrl: String,
+        subject: String,
+        category: String,
+        priority: String,
+        description: String
+    ): SupportTicket {
+        try {
+            val res = api(baseUrl).createTicket(
+                CreateTicketRequest(
+                    subject = subject,
+                    category = category,
+                    priority = priority,
+                    description = description
+                )
+            )
+            val t = res.ticket
+            val created = SupportTicket(
+                id = t.id,
+                subject = t.subject,
+                category = t.category,
+                priority = t.priority,
+                description = t.description,
+                status = t.status,
+                timestamp = formatTimestamp(t.timestamp)
+            )
+            val current = loadCachedTickets().toMutableList()
+            current.add(0, created)
+            saveCachedTickets(current)
+            return created
+        } catch (e: HttpException) {
+            throw Exception(parseError(e, "Failed to submit ticket."))
+        }
+    }
+
+    suspend fun fetchLogs(baseUrl: String): List<ActivityLogItem> {
+        try {
+            val res = api(baseUrl).getLogs()
+            val list = res.logs.map { l ->
+                val typeEnum = try {
+                    LogType.valueOf(l.type.uppercase())
+                } catch (_: Exception) {
+                    LogType.INFO
+                }
+                ActivityLogItem(
+                    id = l.id,
+                    type = typeEnum,
+                    title = l.title,
+                    detail = l.detail,
+                    timestampMillis = l.timestampMillis,
+                    timeFormatted = l.timeFormatted
+                )
+            }
+            if (list.isNotEmpty()) {
+                saveCachedLogs(list)
+            }
+            return list
+        } catch (_: Exception) {
+            return loadCachedLogs()
+        }
+    }
+
+    suspend fun sendLog(baseUrl: String, type: LogType, title: String, detail: String, deviceId: String?) {
+        try {
+            api(baseUrl).sendLog(
+                SendLogRequest(
+                    type = type.name,
+                    title = title,
+                    detail = detail,
+                    deviceId = deviceId
+                )
+            )
+        } catch (_: Exception) {}
+    }
+
+    private fun formatTimestamp(isoString: String): String {
+        return try {
+            // e.g. 2026-08-24T04:37:49.352Z
+            val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+            parser.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val date = parser.parse(isoString) ?: Date()
+            val diffMs = System.currentTimeMillis() - date.time
+            val diffMins = diffMs / (1000 * 60)
+            val diffHours = diffMins / 60
+            val diffDays = diffHours / 24
+
+            when {
+                diffMins < 1 -> "Just now"
+                diffMins < 60 -> "$diffMins mins ago"
+                diffHours < 24 -> "$diffHours hours ago"
+                diffDays == 1L -> "Yesterday"
+                else -> SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()).format(date)
+            }
+        } catch (_: Exception) {
+            "Recent"
+        }
+    }
 }
+

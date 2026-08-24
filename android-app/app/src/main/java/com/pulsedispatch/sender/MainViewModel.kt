@@ -12,7 +12,9 @@ import com.pulsedispatch.sender.data.AppScreen
 import com.pulsedispatch.sender.data.DeviceConfig
 import com.pulsedispatch.sender.data.LogType
 import com.pulsedispatch.sender.data.LoginRequest
+import com.pulsedispatch.sender.data.SmsDispatcher
 import com.pulsedispatch.sender.data.SmsJobDto
+import com.pulsedispatch.sender.data.SmsSendResult
 import com.pulsedispatch.sender.data.SupportTicket
 import com.pulsedispatch.sender.data.UserProfile
 import com.pulsedispatch.sender.service.PulseBackgroundService
@@ -53,6 +55,7 @@ data class MainUiState(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AppRepository(application)
+    private val smsDispatcher = SmsDispatcher(application)
     private val timeFormat = SimpleDateFormat("hh:mm:ss a", Locale.getDefault())
     private val dispatchMutex = Mutex()
 
@@ -425,29 +428,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        try {
-            val smsManager = SmsManager.getDefault()
-            smsManager.sendTextMessage(phoneNumber, null, job.message, null, null)
-
-            repository.reportResult(
-                config = config,
-                deliveryId = job.id,
-                status = "SENT",
-                detail = "Live SMS accepted by cellular modem for $phoneNumber"
-            )
-            _uiState.value = _uiState.value.copy(sentToday = _uiState.value.sentToday + 1)
-            appendLog(LogType.SUCCESS, "SMS Sent", "Delivered to ${job.customerName} ($phoneNumber)")
-        } catch (e: Exception) {
-            try {
-                repository.reportResult(
-                    config = config,
-                    deliveryId = job.id,
-                    status = "FAILED",
-                    detail = e.message ?: "SMS failure"
-                )
-            } catch (_: Exception) {}
-            _uiState.value = _uiState.value.copy(failedToday = _uiState.value.failedToday + 1)
-            appendLog(LogType.ERROR, "SMS Dispatch Error", "Failed sending to $phoneNumber: ${e.message}")
+        val result = smsDispatcher.sendSms(phoneNumber, job.message)
+        when (result) {
+            is SmsSendResult.Success -> {
+                try {
+                    repository.reportResult(
+                        config = config,
+                        deliveryId = job.id,
+                        status = "SENT",
+                        detail = result.message
+                    )
+                } catch (_: Exception) {}
+                _uiState.value = _uiState.value.copy(sentToday = _uiState.value.sentToday + 1)
+                appendLog(LogType.SUCCESS, "SMS Sent", "Delivered to ${job.customerName} ($phoneNumber)")
+            }
+            is SmsSendResult.Error -> {
+                try {
+                    repository.reportResult(
+                        config = config,
+                        deliveryId = job.id,
+                        status = "FAILED",
+                        detail = result.reason
+                    )
+                } catch (_: Exception) {}
+                _uiState.value = _uiState.value.copy(failedToday = _uiState.value.failedToday + 1)
+                appendLog(LogType.ERROR, "SMS Dispatch Error", "Failed sending to $phoneNumber: ${result.reason}")
+            }
         }
     }
 

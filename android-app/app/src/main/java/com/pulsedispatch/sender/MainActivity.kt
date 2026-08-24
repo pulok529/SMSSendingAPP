@@ -44,21 +44,27 @@ class MainActivity : ComponentActivity() {
             PulseSenderTheme {
                 val uiState by viewModel.uiState.collectAsState()
 
-                // SMS permission launcher
-                val permissionLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestPermission()
-                ) { /* handle */ }
+                // Permissions launcher
+                val permissionsLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestMultiplePermissions()
+                ) { /* permissions handled */ }
 
                 LaunchedEffect(uiState.isLoggedIn) {
-                    if (uiState.isLoggedIn) {
-                        val hasSmsPermission = ContextCompat.checkSelfPermission(
-                            this@MainActivity,
-                            Manifest.permission.SEND_SMS
-                        ) == PackageManager.PERMISSION_GRANTED
+                    val permissionsToRequest = mutableListOf<String>()
 
-                        if (!hasSmsPermission) {
-                            permissionLauncher.launch(Manifest.permission.SEND_SMS)
-                        }
+                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+                        permissionsToRequest.add(Manifest.permission.SEND_SMS)
+                    }
+                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+                        permissionsToRequest.add(Manifest.permission.READ_PHONE_STATE)
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                        ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                        permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+
+                    if (permissionsToRequest.isNotEmpty()) {
+                        permissionsLauncher.launch(permissionsToRequest.toTypedArray())
                     }
                 }
 

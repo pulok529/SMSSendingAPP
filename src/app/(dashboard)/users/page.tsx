@@ -60,9 +60,7 @@ type UserDetail = ApiUser & {
   mobileLogs?: Array<{ id: string; type: string; title: string; detail: string; timestamp: string }>;
 };
 
-const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
-  "http://localhost:4000";
+
 
 export default function UsersPage() {
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -97,7 +95,7 @@ export default function UsersPage() {
   async function loadUsers() {
     setIsLoading(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/users`, {
+      const res = await fetch(`/api/users`, {
         credentials: "include",
       });
       if (!res.ok) {
@@ -142,7 +140,7 @@ export default function UsersPage() {
   async function toggleUserStatus(user: ApiUser) {
     const newStatus = !user.isActive;
     try {
-      const res = await fetch(`${apiBaseUrl}/api/users/${user.id}/status`, {
+      const res = await fetch(`/api/users/${user.id}/status`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -172,7 +170,7 @@ export default function UsersPage() {
     e.preventDefault();
     setIsCreating(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/users`, {
+      const res = await fetch(`/api/users`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -213,7 +211,7 @@ export default function UsersPage() {
     setIsDetailLoading(true);
     setSelectedUser(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/users/${userId}`, {
+      const res = await fetch(`/api/users/${userId}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to load user details.");
@@ -234,7 +232,7 @@ export default function UsersPage() {
     e.preventDefault();
     if (!resetPasswordUserId || !newPassword) return;
     try {
-      const res = await fetch(`${apiBaseUrl}/api/users/${resetPasswordUserId}/reset-password`, {
+      const res = await fetch(`/api/users/${resetPasswordUserId}/reset-password`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

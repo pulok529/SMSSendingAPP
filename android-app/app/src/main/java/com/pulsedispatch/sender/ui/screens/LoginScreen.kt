@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -75,7 +76,7 @@ fun LoginScreen(
     onLogin: (String, String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var email by remember(initialEmail) { mutableStateOf(initialEmail) }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var serverUrl by remember { mutableStateOf(initialServerUrl.ifBlank { "http://10.0.2.2:4000" }) }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -195,6 +196,9 @@ fun LoginScreen(
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
                 ),
                 shape = RoundedCornerShape(18.dp),
                 colors = OutlinedTextFieldDefaults.colors(

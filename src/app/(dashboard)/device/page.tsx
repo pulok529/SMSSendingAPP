@@ -23,7 +23,8 @@ export default function DevicePage() {
 
   const loadDevices = async () => {
     try {
-      const res = await fetch("/api/devices");
+      const res = await fetch("/api/devices", {
+        credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setDevices(data.devices || []);

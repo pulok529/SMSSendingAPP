@@ -42,8 +42,10 @@ export default function CampaignsPage() {
   const loadData = async () => {
     try {
       const [campRes, evRes] = await Promise.all([
-        fetch("/api/campaigns"),
-        fetch("/api/events"),
+        fetch("/api/campaigns", {
+        credentials: "include" }),
+        fetch("/api/events", {
+        credentials: "include" }),
       ]);
 
       if (campRes.ok) {
@@ -73,6 +75,7 @@ export default function CampaignsPage() {
     setSubmitting(true);
     try {
       const res = await fetch("/api/campaigns", {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

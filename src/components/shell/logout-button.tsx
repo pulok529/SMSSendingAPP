@@ -11,7 +11,7 @@ export function LogoutButton() {
   const router = useRouter();
 
   async function logout() {
-    await fetch(`${apiBaseUrl}/api/auth/logout`, {
+    await fetch("/api/auth/logout", {
       method: "POST",
       credentials: "include",
     });

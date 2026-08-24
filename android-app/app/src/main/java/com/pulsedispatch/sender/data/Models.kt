@@ -27,11 +27,11 @@ enum class DateFilterOption {
 
 data class DeviceConfig(
     val baseUrl: String = "http://10.0.2.2:4000",
-    val email: String = "pulak@example.com",
-    val name: String = "Pulak Ahmed",
-    val deviceName: String = "Android Test Device",
-    val phoneNumber: String = "+8801711000000",
-    val operator: String = "Grameenphone",
+    val email: String = "",
+    val name: String = "",
+    val deviceName: String = "Android Gateway Phone",
+    val phoneNumber: String = "",
+    val operator: String = "SIM",
     val deviceId: String = "",
     val heartbeatIntervalSeconds: Int = 30,
     val autoFetch: Boolean = false,
@@ -43,17 +43,17 @@ data class DeviceConfig(
 )
 
 data class UserProfile(
-    val id: String = "usr_1",
-    val name: String = "Pulak Ahmed",
-    val email: String = "pulak@example.com",
-    val company: String? = "Pulse Dispatch Admin",
-    val dateOfBirth: String = "01 Jan 1995",
-    val phone: String = "+880 1711-123456",
-    val gender: String = "Male",
-    val address: String = "Dhaka, Bangladesh",
-    val role: String = "SUPERADMIN",
+    val id: String = "",
+    val name: String = "",
+    val email: String = "",
+    val company: String? = null,
+    val dateOfBirth: String = "",
+    val phone: String = "",
+    val gender: String = "Other",
+    val address: String = "",
+    val role: String = "CLIENT",
     val isActive: Boolean = true,
-    val avatarInitials: String = "PA"
+    val avatarInitials: String = "PS"
 )
 
 data class SupportTicket(

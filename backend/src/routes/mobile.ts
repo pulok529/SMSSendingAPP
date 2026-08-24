@@ -40,98 +40,111 @@ mobileRouter.post(
       const authReq = request as AuthenticatedRequest;
       const payload = registerDeviceSchema.parse(request.body);
 
-      const device = await prisma.device.create({
-        data: {
-          userId: authReq.auth.userId,
-          deviceName: payload.deviceName,
-          phoneNumber: payload.phoneNumber,
-          operator: payload.operator,
-          status: DeviceStatus.ONLINE,
-          lastSeenAt: new Date(),
-        },
+      const existing = await prisma.device.findFirst({
+        where: { userId: authReq.auth.userId },
       });
+
+      const device = existing
+        ? await prisma.device.update({
+            where: { id: existing.id },
+            data: {
+              deviceName: payload.deviceName,
+              phoneNumber: payload.phoneNumber,
+              operator: payload.operator,
+              status: DeviceStatus.ONLINE,
+              lastSeenAt: new Date(),
+            },
+          })
+        : await prisma.device.create({
+            data: {
+              userId: authReq.auth.userId,
+              deviceName: payload.deviceName,
+              phoneNumber: payload.phoneNumber,
+              operator: payload.operator,
+              status: DeviceStatus.ONLINE,
+              lastSeenAt: new Date(),
+            },
+          });
 
       await prisma.mobileLog.create({
         data: {
           userId: authReq.auth.userId,
           deviceId: device.id,
           type: "SUCCESS",
-          title: "Device Registered",
-          detail: `${payload.deviceName} (${payload.phoneNumber}) registered to user account.`,
+          title: "Device Connected",
+          detail: `${payload.deviceName} (${payload.phoneNumber}) registered and online.`,
         },
       });
 
-      response.status(201).json({ device });
+      response.status(200).json({ device });
     } catch (error) {
       next(error);
     }
   }
 );
 
-// POST /api/mobile/heartbeat - Device heartbeat
-mobileRouter.post(
-  "/heartbeat",
-  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
-  async (request, response, next) => {
-    try {
-      const authReq = request as AuthenticatedRequest;
-      const payload = heartbeatSchema.parse(request.body ?? {});
+// Heartbeat handler (supports /heartbeat and /:deviceId/heartbeat)
+const handleHeartbeat = async (request: any, response: any, next: any) => {
+  try {
+    const authReq = request as AuthenticatedRequest;
+    const payload = heartbeatSchema.parse(request.body ?? {});
 
-      await prisma.device.updateMany({
-        where: { userId: authReq.auth.userId },
-        data: {
-          status: DeviceStatus.ONLINE,
-          battery: payload.battery || null,
-          queuedJobs: payload.queuedJobs || 0,
-          lastSeenAt: new Date(),
-        },
-      });
+    await prisma.device.updateMany({
+      where: { userId: authReq.auth.userId },
+      data: {
+        status: DeviceStatus.ONLINE,
+        battery: payload.battery || null,
+        queuedJobs: payload.queuedJobs || 0,
+        lastSeenAt: new Date(),
+      },
+    });
 
-      response.json({ ok: true });
-    } catch (error) {
-      next(error);
-    }
+    response.json({ ok: true });
+  } catch (error) {
+    next(error);
   }
-);
+};
 
-// GET /api/mobile/jobs - Pull pending SMS jobs strictly scoped to this client tenant
-mobileRouter.get(
-  "/jobs",
-  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
-  async (request, response, next) => {
-    try {
-      const authReq = request as AuthenticatedRequest;
-      const isSuper = authReq.auth.role === "SUPERADMIN";
+mobileRouter.post("/heartbeat", requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]), handleHeartbeat);
+mobileRouter.post("/:deviceId/heartbeat", requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]), handleHeartbeat);
 
-      const deliveries = await prisma.delivery.findMany({
-        where: {
-          status: DeliveryStatus.PENDING,
-          channel: "SMS",
-          ...(isSuper ? {} : { campaign: { userId: authReq.auth.userId } }),
-        },
-        include: {
-          customer: true,
-          campaign: true,
-        },
-        orderBy: { createdAt: "asc" },
-        take: 50,
-      });
+// Jobs handler (supports /jobs and /:deviceId/jobs)
+const handleJobs = async (request: any, response: any, next: any) => {
+  try {
+    const authReq = request as AuthenticatedRequest;
+    const isSuper = authReq.auth.role === "SUPERADMIN";
 
-      const jobs = deliveries.map((d) => ({
-        id: d.id,
-        phoneNumber: d.customer.mobile || "",
-        customerName: d.customer.name,
-        campaignName: d.campaign.name,
-        message: d.detail,
-        status: d.status,
-      }));
+    const deliveries = await prisma.delivery.findMany({
+      where: {
+        status: DeliveryStatus.PENDING,
+        channel: "SMS",
+        ...(isSuper ? {} : { campaign: { userId: authReq.auth.userId } }),
+      },
+      include: {
+        customer: true,
+        campaign: true,
+      },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+    });
 
-      response.json({ jobs });
-    } catch (error) {
-      next(error);
-    }
+    const jobs = deliveries.map((d) => ({
+      id: d.id,
+      phoneNumber: d.customer.mobile || "",
+      customerName: d.customer.name,
+      campaignName: d.campaign.name,
+      message: d.detail,
+      status: d.status,
+    }));
+
+    response.json({ jobs });
+  } catch (error) {
+    next(error);
   }
-);
+};
+
+mobileRouter.get("/jobs", requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]), handleJobs);
+mobileRouter.get("/:deviceId/jobs", requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]), handleJobs);
 
 // POST /api/mobile/jobs/:id/result - Report SIM SMS send result
 mobileRouter.post(

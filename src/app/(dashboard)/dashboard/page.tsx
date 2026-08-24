@@ -72,8 +72,8 @@ export default function DashboardPage() {
     async function loadData() {
       try {
         const [sumRes, custRes] = await Promise.all([
-          fetch("/api/dashboard/summary"),
-          fetch("/api/customers"),
+          fetch("/api/dashboard/summary", { credentials: "include" }),
+          fetch("/api/customers", { credentials: "include" }),
         ]);
 
         if (sumRes.ok) {

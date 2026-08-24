@@ -36,7 +36,8 @@ export default function EventsPage() {
 
   const loadEvents = async () => {
     try {
-      const res = await fetch("/api/events");
+      const res = await fetch("/api/events", {
+        credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setEvents(data.events || []);
@@ -59,6 +60,7 @@ export default function EventsPage() {
     setSubmitting(true);
     try {
       const res = await fetch("/api/events", {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -91,7 +93,8 @@ export default function EventsPage() {
     if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
 
     try {
-      const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/events/${id}`, {
+        credentials: "include", method: "DELETE" });
       if (res.ok) {
         setEvents((prev) => prev.filter((ev) => ev.id !== id));
       }

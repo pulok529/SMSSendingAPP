@@ -29,7 +29,8 @@ export default function TemplatesPage() {
 
   const loadTemplates = async () => {
     try {
-      const res = await fetch("/api/templates");
+      const res = await fetch("/api/templates", {
+        credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setTemplates(data.templates || []);
@@ -52,6 +53,7 @@ export default function TemplatesPage() {
     setSubmitting(true);
     try {
       const res = await fetch("/api/templates", {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -88,7 +90,8 @@ export default function TemplatesPage() {
     if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
 
     try {
-      const res = await fetch(`/api/templates/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/templates/${id}`, {
+        credentials: "include", method: "DELETE" });
       if (res.ok) {
         setTemplates((prev) => prev.filter((t) => t.id !== id));
       }

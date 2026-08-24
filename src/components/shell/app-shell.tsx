@@ -46,7 +46,7 @@ export function AppShell({
 
   useEffect(() => {
     // 1. Fetch user role
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user?.role) {
@@ -56,7 +56,7 @@ export function AppShell({
       .catch(() => {});
 
     // 2. Fetch live ready count
-    fetch("/api/dashboard/summary")
+    fetch("/api/dashboard/summary", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (typeof data?.counts?.smsReady === "number") {

@@ -29,7 +29,8 @@ export default function LogsPage() {
       if (channelFilter !== "ALL") params.append("channel", channelFilter);
       if (search) params.append("search", search);
 
-      const res = await fetch(`/api/logs?${params.toString()}`);
+      const res = await fetch(`/api/logs?${params.toString()}`, {
+        credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setLogs(data.deliveries || []);

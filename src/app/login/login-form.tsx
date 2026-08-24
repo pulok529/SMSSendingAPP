@@ -23,7 +23,7 @@ export function LoginForm() {
     setMessage("");
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         credentials: "include",
         headers: {

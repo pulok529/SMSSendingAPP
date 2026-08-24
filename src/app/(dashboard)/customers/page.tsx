@@ -43,7 +43,8 @@ export default function CustomersPage() {
       if (search) params.append("search", search);
       if (consentFilter !== "ALL") params.append("consent", consentFilter);
 
-      const res = await fetch(`/api/customers?${params.toString()}`);
+      const res = await fetch(`/api/customers?${params.toString()}`, {
+        credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setCustomers(data.customers || []);
@@ -66,6 +67,7 @@ export default function CustomersPage() {
     setSubmitting(true);
     try {
       const res = await fetch("/api/customers", {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,7 +112,8 @@ export default function CustomersPage() {
     if (!confirm(`Are you sure you want to delete ${name}?`)) return;
 
     try {
-      const res = await fetch(`/api/customers/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/customers/${id}`, {
+        credentials: "include", method: "DELETE" });
       if (res.ok) {
         setCustomers((prev) => prev.filter((c) => c.id !== id));
       }

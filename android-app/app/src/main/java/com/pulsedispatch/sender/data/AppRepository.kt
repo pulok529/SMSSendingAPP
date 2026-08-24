@@ -42,20 +42,20 @@ class AppRepository(context: Context) {
     fun getAuthToken(): String? = prefs.getString("auth_token", null)
 
     fun loadProfile(): UserProfile {
-        val name = prefs.getString("profile_name", "Pulak Ahmed").orEmpty()
-        val email = prefs.getString("profile_email", "pulak@example.com").orEmpty()
-        val dob = prefs.getString("profile_dob", "01 Jan 1995").orEmpty()
-        val phone = prefs.getString("profile_phone", "+880 1711-123456").orEmpty()
-        val gender = prefs.getString("profile_gender", "Male").orEmpty()
-        val address = prefs.getString("profile_address", "Dhaka, Bangladesh").orEmpty()
-        val role = prefs.getString("profile_role", "ADMIN").orEmpty()
+        val name = prefs.getString("profile_name", "").orEmpty()
+        val email = prefs.getString("profile_email", "").orEmpty()
+        val dob = prefs.getString("profile_dob", "").orEmpty()
+        val phone = prefs.getString("profile_phone", "").orEmpty()
+        val gender = prefs.getString("profile_gender", "Other").orEmpty()
+        val address = prefs.getString("profile_address", "").orEmpty()
+        val role = prefs.getString("profile_role", "CLIENT").orEmpty()
 
         val initials = name.split(" ")
             .filter { it.isNotBlank() }
             .take(2)
             .map { it.first().uppercase() }
             .joinToString("")
-            .ifEmpty { "PA" }
+            .ifEmpty { "PS" }
 
         return UserProfile(
             name = name,

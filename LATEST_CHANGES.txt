@@ -1,0 +1,267 @@
+﻿================================================================================
+                     PULSE SENDER - LATEST PROJECT CHANGES & UPDATES
+================================================================================
+Generated: September 3, 2026
+Repository: https://github.com/pulok529/SMSSendingAPP.git
+Branch: main
+================================================================================
+
+TABLE OF CONTENTS:
+1. Executive Summary
+2. Android App: Carrier-Verified SMS Engine (SmsDispatcher) & Fixes
+3. Web App: Quick Send (Instant SMS) Module & Excel Recipient Grid
+4. Security: Authentication Guards, Middleware & Top-Right Role Identity
+5. Infrastructure: Docker Internal Proxy & Network Routing
+6. Branding & Error Handling Hardening
+7. Complete File Manifest (Modified, Created, Deleted)
+8. Git Commit Log & Reference Hashes
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+Pulse Sender is an enterprise SMS gateway and broadcast dispatch platform 
+comprising a Next.js 16 Web Control Panel, an Express/PostgreSQL/Redis backend, 
+and a companion Android application that uses real device SIM cards to dispatch 
+messages.
+
+Recent developments focused on:
+- Fixing silent SMS delivery failures on real physical devices (especially in 
+  Australia and modern Android versions).
+- Introducing a "Quick Send" feature for instant ad-hoc SMS dispatching from 
+  Excel spreadsheets or manual lists without requiring campaign or event setup.
+- Enforcing strict authentication guards across all routes.
+- Adding a prominent user and role indicator in the top-right header.
+- Streamlining internal Docker container proxy networking.
+
+================================================================================
+2. ANDROID APP: CARRIER-VERIFIED SMS ENGINE (SmsDispatcher) & FIXES
+================================================================================
+
+A. The Problem Identified:
+--------------------------
+In earlier builds, standard Android `SmsManager.sendTextMessage()` was used 
+without a BroadcastReceiver (passing null for PendingIntents). Because 
+`sendTextMessage()` is asynchronous and fire-and-forget:
+- If Android accepted the call into its memory buffer, the app immediately reported
+  "SENT" to the backend server.
+- If the cellular carrier or baseband modem later rejected the SMS (due to 
+  insufficient SIM balance, bad phone formatting, no cellular service, or rate limits),
+  the app never received the failure callback, resulting in a false "Sent" status 
+  on the dashboard while the SMS never reached the recipient.
+
+B. The Solution Implemented (SmsDispatcher.kt):
+-----------------------------------------------
+1. Real-Time Carrier Broadcast Confirmation:
+   - Implemented a dedicated `BroadcastReceiver` listening for the cellular modem's
+     `Activity.RESULT_OK` response before confirming delivery.
+   - The app now waits up to 12 seconds for the physical radio modem callback.
+   - If transmission fails, it catches the exact carrier error code:
+     * RESULT_ERROR_GENERIC_FAILURE (Code 1): Insufficient balance, SIM plan restricted,
+       or rejected destination.
+     * RESULT_ERROR_RADIO_OFF (Code 2): Airplane mode or deactivated SIM.
+     * RESULT_ERROR_NULL_PDU (Code 3): Modem PDU generation error.
+     * RESULT_ERROR_NO_SERVICE (Code 4): No cellular tower signal or registration.
+     * RESULT_ERROR_LIMIT_EXCEEDED (Code 5): Android OS anti-spam rate limit dialog.
+   - Reports the exact human-readable failure reason back to the Web Dashboard and 
+     Activity Log.
+
+2. Multipart SMS Support (Messages > 160 Characters):
+   - Standard single-part SMS is limited to 160 GSM-7 characters or 70 Unicode 
+     characters (emojis, accented text).
+   - Added `smsManager.divideMessage()` and `smsManager.sendMultipartTextMessage()`.
+   - Long messages are now split into multi-part segments and tracked with separate 
+     PendingIntents, preventing silent drop of long SMS copy.
+
+3. Australian & International Phone Number Sanitization:
+   - Sanitizes input phone numbers by removing spaces, dashes, parentheses, and dots.
+   - Supports both Australian local format (e.g. 0412 345 678 -> 0412345678) and 
+     international format (+61 412 345 678 -> +61412345678).
+
+4. Modern Android 12, 13, 14, 15 & Dual-SIM / eSIM Support:
+   - Resolved deprecation of `SmsManager.getDefault()`.
+   - Uses `context.getSystemService(SmsManager::class.java)` on Android 12+ (API 31+).
+   - Resolves active SMS SIM subscription ID via `SubscriptionManager` on Dual-SIM 
+     and eSIM devices.
+
+5. Runtime Permissions Enforcement:
+   - Added `RequestMultiplePermissions` launcher in `MainActivity.kt` requesting:
+     * `android.permission.SEND_SMS`
+     * `android.permission.READ_PHONE_STATE`
+     * `android.permission.POST_NOTIFICATIONS` (Android 13+)
+   - Prevents dispatch attempts if the user has not granted SMS permissions.
+
+6. Release APK Rebuilt:
+   - Built production APK: `mobile-release/PulseSender-v1.0.0-release.apk`
+   - Bundled and committed directly to the repository.
+
+================================================================================
+3. WEB APP: QUICK SEND (INSTANT SMS) MODULE & EXCEL RECIPIENT GRID
+================================================================================
+
+A. Purpose:
+-----------
+Enables users to send one-off or bulk SMS immediately without having to pre-register
+customers, build events, or configure complex multi-step campaigns.
+
+B. Key Features:
+----------------
+1. Three Recipient Input Modes:
+   - Upload Excel / CSV:
+     * Drag-and-drop `.xlsx`, `.xls`, or `.csv` files.
+     * Browser-side parsing via SheetJS (`xlsx`).
+     * Auto-detects columns: Name, Phone / Mobile, Company, Custom notes.
+     * Includes a 1-click "Download Sample Excel Template" button.
+   - Manual 1-by-1 Entry:
+     * Fast keyboard-friendly entry fields (Name, Mobile, Company).
+     * Pressing Enter adds the row and clears inputs for rapid typing.
+   - Quick Paste Numbers:
+     * Textarea to paste comma, semicolon, tab, or newline-separated numbers.
+
+2. Interactive Recipient Data Grid:
+   - Live Phone Validation: Real-time badge indicators (`✓ Valid` vs `⚠ Invalid`).
+   - Row-level inline personalized message preview.
+   - Individual row delete button.
+   - Batch actions: "Clean Invalid" (removes broken numbers in 1 click) and "Clear All".
+   - Search filter to inspect large contact lists.
+
+3. Message Composer & Live Preview:
+   - Textarea with 1-click placeholder tag chips: `+ {{name}}`, `+ {{phone}}`, 
+     `+ {{company}}`, `+ {{custom}}`.
+   - Real-time character & segment counter (GSM-7 160-char vs Unicode 70-char detection).
+   - Live Smartphone Mockup Preview showing real-time personalized text wrapping.
+
+4. Backend API Endpoint:
+   - Route: `POST /api/campaigns/quick-send`
+   - Validates recipient list and session credentials.
+   - Creates/finds customer records tagged as `['instant-send']`.
+   - Creates a QUEUED SMS campaign and generates individual PENDING delivery records.
+   - Instantly exposes pending jobs to the linked Android companion device.
+
+================================================================================
+4. SECURITY: AUTHENTICATION GUARDS, MIDDLEWARE & TOP-RIGHT ROLE IDENTITY
+================================================================================
+
+A. Root Redirect & Route Guards:
+--------------------------------
+- Created `src/middleware.ts` intercepting all incoming Next.js requests.
+- Redirects unauthenticated visitors attempting to access `/`, `/dashboard`, 
+  `/quick-send`, `/users`, `/imports`, `/customers`, `/events`, `/campaigns`, 
+  `/templates`, `/device`, or `/logs` straight to `/login?next=<path>`.
+- Redirects authenticated visitors visiting `/` or `/login` straight to `/dashboard`.
+- Deleted obsolete `src/proxy.ts`.
+
+B. Top-Right User & Role Identity Card:
+---------------------------------------
+- Located at the top right of the Web Control Panel header (`AppShell`).
+- Displays:
+  * User Initials Avatar with distinctive gradient styling.
+  * User Full Name & Email.
+  * Distinct Role Badge:
+    - `🛡️ SUPER USER` (Purple/gold gradient badge for Superadmins).
+    - `🏢 CLIENT USER` (Emerald badge displaying the Company Name for Clients).
+- Tenant Data Isolation:
+  * All backend queries strictly filter data by `userId = req.user.userId` for 
+    clients, ensuring complete multi-tenant privacy.
+
+================================================================================
+5. INFRASTRUCTURE: DOCKER INTERNAL PROXY & NETWORK ROUTING
+================================================================================
+- Added `API_INTERNAL_URL: http://api:4000` to `docker-compose.yml`.
+- Updated `next.config.ts` rewrite destination so the Next.js standalone container 
+  inside Docker correctly proxies `/api/*` browser requests to the `pulse-api` container.
+- Configured CORS and cookie sharing between ports 3000 and 4000.
+
+================================================================================
+6. BRANDING & ERROR HANDLING HARDENING
+================================================================================
+- Unified application branding across all assets to **Pulse Sender** ⚡.
+- Created custom adaptive vector launcher drawables and multi-DPI icons for Android 
+  (mipmap-mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi).
+- Hardened web UI against runtime crashes with Next.js error boundaries:
+  * `src/app/error.tsx`
+  * `src/app/global-error.tsx`
+  * `src/app/not-found.tsx`
+- Added Mutex concurrency locks in Android `MainViewModel.kt` to prevent race 
+  conditions during batch SMS dispatching.
+
+================================================================================
+7. COMPLETE FILE MANIFEST
+================================================================================
+
+A. Android Mobile App:
+----------------------
+- [NEW] `android-app/app/src/main/java/com/pulsedispatch/sender/data/SmsDispatcher.kt`
+  (Carrier broadcast receiver, multipart SMS, Australian number sanitization)
+- [MODIFIED] `android-app/app/src/main/java/com/pulsedispatch/sender/MainViewModel.kt`
+  (Integrated SmsDispatcher, accurate error reporting)
+- [MODIFIED] `android-app/app/src/main/java/com/pulsedispatch/sender/MainActivity.kt`
+  (Multi-permission launcher for SMS, Phone State, and Notifications)
+- [MODIFIED] `android-app/app/src/main/AndroidManifest.xml`
+  (Added READ_PHONE_STATE permission)
+- [NEW/UPDATED] `mobile-release/PulseSender-v1.0.0-release.apk`
+  (Compiled production release APK binary)
+- [NEW/UPDATED] `mobile-release/app-release.apk`
+  (Direct release binary copy)
+
+B. Web Dashboard & Frontend:
+----------------------------
+- [NEW] `src/app/(dashboard)/quick-send/page.tsx`
+  (Quick Send dashboard page)
+- [NEW] `src/components/quick-send/quick-send-workbench.tsx`
+  (Interactive Excel/manual SMS dispatch workbench component)
+- [NEW] `src/components/quick-send/quick-send-workbench.module.css`
+  (Styling for tabs, dropzone, table grid, preview bubble, and action bar)
+- [MODIFIED] `src/components/shell/app-shell.tsx`
+  (Added Quick Send navigation link, top-right user profile card, and role badges)
+- [MODIFIED] `src/components/shell/app-shell.module.css`
+  (Styling for top-right user profile card and role badges)
+- [MODIFIED] `src/app/(dashboard)/layout.tsx`
+  (Added /quick-send route metadata)
+- [MODIFIED] `src/app/page.tsx`
+  (Server-side cookie validation and redirect to /login)
+- [NEW] `src/middleware.ts`
+  (Official Next.js auth guard middleware)
+- [DELETED] `src/proxy.ts`
+  (Replaced by standard middleware.ts)
+
+C. Backend API & Configuration:
+-------------------------------
+- [MODIFIED] `backend/src/routes/campaigns.ts`
+  (Added POST /api/campaigns/quick-send route handler)
+- [MODIFIED] `backend/src/routes/mobile.ts`
+  (Dual route support /jobs and /:deviceId/jobs)
+- [MODIFIED] `docker-compose.yml`
+  (Added API_INTERNAL_URL for container networking)
+- [MODIFIED] `next.config.ts`
+  (Internal Docker API rewrite configuration)
+
+================================================================================
+8. GIT COMMIT LOG & REFERENCE HASHES
+================================================================================
+
+1. Commit `e77687d`:
+   "fix(mobile): add SmsDispatcher with carrier broadcast verification, multipart 
+   SMS support, Australian phone sanitization, and dual-SIM handling"
+
+2. Commit `04e67bd`:
+   "feat: add instant Quick Send page, Excel/manual recipient grid, top right 
+   user role indicator, and strict auth guards"
+
+3. Commit `deb0392`:
+   "fix: route internal web docker proxy to api container via API_INTERNAL_URL"
+
+4. Commit `bf3f4df`:
+   "feat: sync web session cookies, backend mobile dual routes, clean login ui, 
+   and bundle production release APK"
+
+5. Commit `28cfadb`:
+   "feat: Add custom Pulse Sender launcher icons and adaptive vector drawables 
+   across all DPI densities"
+
+6. Commit `6ff2bb5`:
+   "feat: Unify branding to Pulse Sender and implement crash-proof error handling 
+   with mutex on Android and Next.js error boundaries"
+
+================================================================================
+END OF LATEST CHANGES SUMMARY
+================================================================================

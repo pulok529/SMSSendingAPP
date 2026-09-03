@@ -1,0 +1,100 @@
+================================================================================
+                    PULSE DISPATCH & MULTI-CHANNEL UPGRADE
+                           COMPLETE CHANGELOG & ARCHITECTURE
+================================================================================
+
+Date: 2026-09-03
+Status: FULLY IMPLEMENTED & VERIFIED (Web App + Backend API + Android App + SQLite/PostgreSQL)
+Repository: https://github.com/pulok529/SMSSendingAPP (Pushed to origin/main)
+
+--------------------------------------------------------------------------------
+1. DATABASE & PRISMA SCHEMA (PostgreSQL / SQLite Compatible)
+--------------------------------------------------------------------------------
+- Models Added to backend/prisma/schema.prisma:
+  * EmailConfig: Outgoing SMTP configuration (host, port, secure, user, password, fromEmail, fromName).
+  * Contact: Central Phone Directory (name, contactNo, email, others, userId).
+  * ContactGroup: Group classification with 2-box ranking (name, details, code, rank, userId).
+  * GroupMember: Composite unique index [groupId, contactId].
+  * MessageLibrary: Template library with auto-versioning (title, subject, body, channel, type, status, version, userId).
+  * Updated Campaign & Delivery: Added scheduledAt, emailSubject, saveToDirectory, recipientPhone, recipientEmail.
+
+--------------------------------------------------------------------------------
+2. BACKEND API SERVICES & BACKGROUND SCHEDULER
+--------------------------------------------------------------------------------
+- backend/src/services/email-sender.ts:
+  * Reusable nodemailer transport configured from tenant SMTP credentials.
+- backend/src/services/scheduler.ts:
+  * 20s interval cron worker checking for scheduled campaigns due for dispatch.
+  * Dispatches SMTP emails and queues cellular SMS tasks for Android devices.
+- backend/src/routes/directory.ts:
+  * Smart non-null comparison deduplication across name, phone, and email.
+  * Excel spreadsheet bulk upload with auto-deduplication.
+  * /duplicates and /errors detection and merge resolution.
+- backend/src/routes/groups.ts:
+  * 2-Box ranked priority tiers vs unranked general groups.
+  * PUT /ranks batch hierarchy reordering.
+  * Add from Directory autocomplete (with prompt if missing), Add from Past Job, Add from Excel.
+- backend/src/routes/messages.ts:
+  * Read-only AUTO audit logs of past ad-hoc dispatches.
+  * MANUAL reusable templates with version increments (v+1 auto-activates, disables previous).
+- backend/src/routes/email-config.ts:
+  * Dynamic SMTP settings save and POST /test live email sender.
+- backend/src/routes/campaigns.ts:
+  * POST /dispatch: Handles dual SMS and Email, scheduledAt timestamp, auto-directory ingestion, and auto-message logging.
+- backend/src/routes/mobile.ts:
+  * POST /api/mobile/sync: Ingests staged offline dispatches and contacts from Android devices.
+
+--------------------------------------------------------------------------------
+3. WEB APPLICATION FRONTEND (Next.js 16 + React 19)
+--------------------------------------------------------------------------------
+- Universal Dispatch Console (/dispatch):
+  * Dynamic Email Subject line (conditionally shown when Email is selected).
+  * Message composer with variable pills (+ {{name}}, + {{phone}}, + {{email}}, + {{company}}).
+  * Character & GSM-7 (160) vs Unicode (70) segment counter.
+  * Smartphone preview mockup showing live rendered personalizations.
+  * 4 Input Modes:
+    1) Choose Group (loads group members)
+    2) Upload Excel/CSV (auto-mapped columns + sample template download)
+    3) Manual 1-by-1 (rapid keyboard entry with Enter key)
+    4) Quick Paste (comma/newline delimited parser)
+  * Recipient Grid: Per-row checkboxes for SMS and Email with master toggles.
+  * "Save to Phone Directory" switch (default ON).
+  * "Schedule for later" datetime picker.
+  * Confirmation Preview Modal:
+    - Displays From SIM Gateway & From SMTP Email
+    - Full rendered subject & message box
+    - Recipient breakdown summary table
+    - Cancel (closes and allows grid edits) vs Confirm & Send Now.
+- Phone Directory (/directory):
+  * Central contacts table with live search and pagination.
+  * Excel spreadsheet importer with smart deduplication.
+  * Duplicate contacts tab & Error conflicts tab with 1-click merge resolver.
+- Contact Groups (/groups):
+  * 2-Box visual ranking organizer (Ranked Groups with Up/Down/Unrank vs General Groups).
+  * Member table with Add Autocomplete, Add from Past Job, Add from Excel.
+  * Un-saved contact confirmation prompt before adding to group.
+- Message Library (/messages):
+  * Tab 1: Manual Templates (Create, edit creating v+1 and disabling old version, archive).
+  * Tab 2: Auto Dispatches (Read-only audit record of previously sent copy).
+- Email Settings (/email-settings):
+  * Dynamic SMTP form with live connection test email sender.
+- Navigation Shell & Middleware:
+  * Updated app-shell.tsx and middleware.ts protecting and linking all routes.
+
+--------------------------------------------------------------------------------
+4. ANDROID COMPANION APP (Jetpack Compose + Kotlin)
+--------------------------------------------------------------------------------
+- Full companion parity:
+  * DispatchScreen.kt: Mobile dispatch console with SMS/Email toggles and Confirmation Preview Modal.
+  * PhoneDirectoryScreen.kt: Contact directory viewer and manual contact adder.
+  * GroupManagementScreen.kt: Ranked vs General group viewer.
+  * MessageLibraryScreen.kt: Manual templates vs Auto dispatch audits viewer.
+  * PulseSideMenu.kt: Drawer navigation with direct links to all modules.
+- Offline Staging & Synchronization:
+  * AppRepository.kt & MainViewModel.kt: Offline batches staged in persistent storage on network loss.
+  * Automatic sync via /api/mobile/sync upon reconnect.
+- Production APK:
+  * Built release binary: mobile-release/pulse-sender-release.apk (43.3 MB)
+  * Public web download available at: public/pulse-sender-release.apk
+
+================================================================================

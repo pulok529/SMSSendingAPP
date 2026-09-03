@@ -339,3 +339,179 @@ mobileRouter.get(
     }
   }
 );
+
+// POST /api/mobile/sync - Synchronize staged offline batches and contacts
+const syncOfflineSchema = z.object({
+  stagedDispatches: z.array(
+    z.object({
+      name: z.string().optional(),
+      subject: z.string().optional(),
+      message: z.string().min(1),
+      recipients: z.array(
+        z.object({
+          name: z.string().optional().default("Valued Contact"),
+          phone: z.string().optional(),
+          email: z.string().optional(),
+          company: z.string().optional(),
+          sendSms: z.boolean().default(true),
+          sendEmail: z.boolean().default(false),
+        })
+      ),
+      saveToDirectory: z.boolean().default(true),
+      scheduledAt: z.string().optional().nullable(),
+    })
+  ).default([]),
+  stagedContacts: z.array(
+    z.object({
+      name: z.string().min(1),
+      contactNo: z.string().optional(),
+      email: z.string().optional(),
+      others: z.string().optional(),
+    })
+  ).default([]),
+});
+
+mobileRouter.post(
+  "/sync",
+  requireAuth(["SUPERADMIN", "ADMIN", "CLIENT", "SENDER"]),
+  async (request, response, next) => {
+    try {
+      const authReq = request as AuthenticatedRequest;
+      const payload = syncOfflineSchema.parse(request.body ?? {});
+
+      let syncedContactsCount = 0;
+      let syncedDispatchesCount = 0;
+
+      // 1. Process staged contacts into Phone Directory
+      for (const sc of payload.stagedContacts) {
+        const cleanPhone = sc.contactNo ? sc.contactNo.replace(/[^\d+]/g, "") : null;
+        const cleanEmail = sc.email?.trim().toLowerCase() || null;
+
+        const match = await prisma.contact.findFirst({
+          where: {
+            userId: authReq.auth.userId,
+            ...(cleanPhone ? { contactNo: cleanPhone } : cleanEmail ? { email: cleanEmail } : { name: sc.name }),
+          },
+        });
+
+        if (!match) {
+          await prisma.contact.create({
+            data: {
+              userId: authReq.auth.userId,
+              name: sc.name,
+              contactNo: cleanPhone,
+              email: cleanEmail,
+              others: sc.others || null,
+            },
+          });
+          syncedContactsCount++;
+        }
+      }
+
+      // 2. Process staged dispatches into Campaigns and Deliveries
+      for (const disp of payload.stagedDispatches) {
+        const now = new Date();
+        const isScheduled = Boolean(disp.scheduledAt && new Date(disp.scheduledAt) > now);
+
+        let hasSms = false;
+        let hasEmail = false;
+        const processedDeliveries: any[] = [];
+
+        for (const item of disp.recipients) {
+          const recipientName = item.name?.trim() || "Valued Contact";
+          const cleanPhone = item.phone ? item.phone.trim().replace(/[^\d+]/g, "") : null;
+          const cleanEmail = item.email ? item.email.trim().toLowerCase() : null;
+
+          let customer = await prisma.customer.findFirst({
+            where: {
+              userId: authReq.auth.userId,
+              ...(cleanPhone ? { mobile: cleanPhone } : cleanEmail ? { email: cleanEmail } : { name: recipientName }),
+            },
+          });
+
+          if (!customer) {
+            customer = await prisma.customer.create({
+              data: {
+                userId: authReq.auth.userId,
+                name: recipientName,
+                mobile: cleanPhone,
+                email: cleanEmail,
+                company: item.company || null,
+                consentSms: Boolean(item.sendSms),
+                consentEmail: Boolean(item.sendEmail),
+                tags: ["offline-sync"],
+              },
+            });
+          }
+
+          let text = disp.message;
+          text = text.replaceAll("{{name}}", recipientName);
+          text = text.replaceAll("{{phone}}", cleanPhone || "");
+          text = text.replaceAll("{{email}}", cleanEmail || "");
+
+          if (item.sendSms && cleanPhone && cleanPhone.length >= 5) {
+            hasSms = true;
+            processedDeliveries.push({
+              customerId: customer.id,
+              phone: cleanPhone,
+              channel: "SMS",
+              text,
+            });
+          }
+
+          if (item.sendEmail && cleanEmail && cleanEmail.includes("@")) {
+            hasEmail = true;
+            processedDeliveries.push({
+              customerId: customer.id,
+              email: cleanEmail,
+              channel: "EMAIL",
+              text,
+              subject: disp.subject || "Update from Pulse Sender",
+            });
+          }
+        }
+
+        if (processedDeliveries.length > 0) {
+          const campaign = await prisma.campaign.create({
+            data: {
+              userId: authReq.auth.userId,
+              name: disp.name || `Offline Sync - ${now.toLocaleDateString()}`,
+              channel: hasSms && hasEmail ? "BOTH" : hasEmail ? "EMAIL" : "SMS",
+              emailSubject: disp.subject || null,
+              audienceSize: processedDeliveries.length,
+              status: isScheduled ? CampaignStatus.SCHEDULED : CampaignStatus.QUEUED,
+              scheduledAt: isScheduled && disp.scheduledAt ? new Date(disp.scheduledAt) : null,
+              saveToDirectory: disp.saveToDirectory,
+              launchedAt: isScheduled ? null : now,
+            },
+          });
+
+          await prisma.delivery.createMany({
+            data: processedDeliveries.map((d) => ({
+              customerId: d.customerId,
+              campaignId: campaign.id,
+              channel: d.channel,
+              status: DeliveryStatus.PENDING,
+              recipientPhone: d.phone || null,
+              recipientEmail: d.email || null,
+              emailSubject: d.subject || null,
+              detail: d.text,
+            })),
+          });
+
+          syncedDispatchesCount++;
+        }
+      }
+
+      response.status(201).json({
+        ok: true,
+        syncedContactsCount,
+        syncedDispatchesCount,
+        message: `Successfully synced ${syncedDispatchesCount} batch(es) and ${syncedContactsCount} contact(s) with central server.`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+

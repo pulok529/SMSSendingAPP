@@ -3,12 +3,17 @@
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
 import {
+  BookUser,
   CalendarRange,
   ClipboardList,
+  FolderGit2,
   LayoutDashboard,
   Mail,
+  MailCheck,
+  MessageSquareQuote,
   PlugZap,
   ScrollText,
+  Send,
   ShieldCheck,
   Upload,
   Users,
@@ -19,7 +24,12 @@ import { LogoutButton } from "./logout-button";
 
 const allNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/quick-send", label: "Quick Send (Instant)", icon: Zap },
+  { href: "/dispatch", label: "Dispatch Console", icon: Send },
+  { href: "/directory", label: "Phone Directory", icon: BookUser },
+  { href: "/groups", label: "Contact Groups", icon: FolderGit2 },
+  { href: "/messages", label: "Message Library", icon: MessageSquareQuote },
+  { href: "/email-settings", label: "Email Settings", icon: MailCheck },
+  { href: "/quick-send", label: "Quick Send", icon: Zap },
   { href: "/users", label: "Users & Clients", icon: ShieldCheck, superOnly: true },
   { href: "/imports", label: "Imports", icon: Upload },
   { href: "/customers", label: "Customers", icon: Users },

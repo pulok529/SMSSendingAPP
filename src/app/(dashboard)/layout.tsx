@@ -8,6 +8,31 @@ const routeMeta: Record<string, { title: string; description: string }> = {
     description:
       "Track imports, customer readiness, live device dispatch, and upcoming event communication from one operational dashboard.",
   },
+  "/dispatch": {
+    title: "Universal Dispatch Console",
+    description:
+      "Send personalized messages across cellular SMS modems and SMTP Email servers with live confirmation preview and scheduler.",
+  },
+  "/directory": {
+    title: "Phone Directory & Contact Library",
+    description:
+      "Central phonebook repository with non-null deduplication comparison, duplicate detection, and conflict resolution.",
+  },
+  "/groups": {
+    title: "Contact Groups & Hierarchy",
+    description:
+      "Categorize contacts into ranked priority tiers or general groups with autocomplete and job-based bulk imports.",
+  },
+  "/messages": {
+    title: "Message & Template Library",
+    description:
+      "Draft repeatable broadcast templates with automatic versioning, and inspect auto-logged sent messages.",
+  },
+  "/email-settings": {
+    title: "Dynamic Email SMTP Configuration",
+    description:
+      "Configure your outgoing SMTP host, port, security credentials, and verify connection with live test emails.",
+  },
   "/quick-send": {
     title: "Instant SMS Dispatch",
     description:

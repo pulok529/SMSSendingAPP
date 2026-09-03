@@ -325,7 +325,7 @@ private fun JobItemCard(job: SmsJobDto) {
                     }
 
                     Text(
-                        text = job.customerName,
+                        text = job.customerName ?: "Direct Recipient",
                         fontSize = 12.sp,
                         color = MutedBrown
                     )

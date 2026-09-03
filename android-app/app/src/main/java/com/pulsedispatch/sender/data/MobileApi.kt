@@ -51,5 +51,27 @@ interface MobileApi {
 
     @POST("api/mobile/logs")
     suspend fun sendLog(@Body request: SendLogRequest): JobResultResponse
-}
 
+    // === NEW DISPATCH & DIRECTORY API ENDPOINTS ===
+
+    @POST("api/campaigns/dispatch")
+    suspend fun dispatchBatch(@Body request: DispatchBatchRequest): DispatchBatchResponse
+
+    @POST("api/mobile/sync")
+    suspend fun syncOffline(@Body request: OfflineSyncRequest): OfflineSyncResponse
+
+    @GET("api/directory")
+    suspend fun getDirectory(): DirectoryResponse
+
+    @POST("api/directory")
+    suspend fun createContact(@Body request: CreateContactRequest): CreateContactResponse
+
+    @GET("api/groups")
+    suspend fun getGroups(): GroupsResponse
+
+    @GET("api/groups/{id}/members")
+    suspend fun getGroupMembers(@Path("id") groupId: String): GroupMembersResponse
+
+    @GET("api/messages")
+    suspend fun getMessages(): MessagesResponse
+}

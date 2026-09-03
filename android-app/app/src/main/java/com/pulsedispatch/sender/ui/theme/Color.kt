@@ -52,3 +52,16 @@ val WarningAmberBorder = Color(0xFFF2D190)
 val InfoBlue = Color(0xFF0F4F74)
 val InfoBlueBg = Color(0xFFDFF0FB)
 val InfoBlueBorder = Color(0xFFB5DDF4)
+
+object PulseColors {
+    val Background = WarmCream
+    val CardBg = CardWhite
+    val Primary = OrangePrimary
+    val Secondary = OrangeSecondary
+    val TextPrimary = DarkBrown
+    val TextSecondary = MediumBrown
+    val TextMuted = MutedBrown
+    val Success = SuccessGreen
+    val Error = ErrorRed
+}
+

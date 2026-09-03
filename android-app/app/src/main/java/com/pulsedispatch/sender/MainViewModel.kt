@@ -581,4 +581,82 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (_: Exception) {}
         }
     }
+
+    // === Multi-Channel Dispatch & Directory Actions ===
+
+    fun dispatchBatch(
+        subject: String?,
+        message: String,
+        recipients: List<com.pulsedispatch.sender.data.DispatchRecipientDto>,
+        saveToDirectory: Boolean,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            val req = com.pulsedispatch.sender.data.DispatchBatchRequest(
+                subject = subject,
+                message = message,
+                recipients = recipients,
+                saveToDirectory = saveToDirectory
+            )
+            val res = repository.dispatchBatch(_uiState.value.config.baseUrl, req)
+            if (res.isSuccess) {
+                val data = res.getOrNull()
+                val msg = data?.message ?: "Queued ${data?.queuedCount ?: 0} messages successfully!"
+                appendLog(LogType.SUCCESS, "Multi-Channel Dispatch", msg)
+                launch(Dispatchers.Main) { onResult(true, msg) }
+            } else {
+                val err = res.exceptionOrNull()?.message ?: "Dispatches staged locally for offline sync."
+                appendLog(LogType.WARNING, "Offline Dispatch Staged", err)
+                launch(Dispatchers.Main) { onResult(false, err) }
+            }
+        }
+    }
+
+    fun syncOffline(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            val res = repository.syncOffline(_uiState.value.config.baseUrl)
+            if (res.isSuccess) {
+                val data = res.getOrNull()
+                val msg = data?.message ?: "Synced offline data successfully."
+                appendLog(LogType.SUCCESS, "Offline Sync", msg)
+                launch(Dispatchers.Main) { onResult(true, msg) }
+            } else {
+                val err = res.exceptionOrNull()?.message ?: "Offline sync failed."
+                launch(Dispatchers.Main) { onResult(false, err) }
+            }
+        }
+    }
+
+    fun fetchDirectory(onResult: (List<com.pulsedispatch.sender.data.ContactDto>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            val res = repository.getDirectory(_uiState.value.config.baseUrl)
+            val list = res.getOrDefault(emptyList())
+            launch(Dispatchers.Main) { onResult(list) }
+        }
+    }
+
+    fun createContact(name: String, phone: String?, email: String?, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            val req = com.pulsedispatch.sender.data.CreateContactRequest(name = name, contactNo = phone, email = email)
+            val res = repository.createContact(_uiState.value.config.baseUrl, req)
+            launch(Dispatchers.Main) { onResult(res.isSuccess) }
+        }
+    }
+
+    fun fetchGroups(onResult: (List<com.pulsedispatch.sender.data.GroupDto>, List<com.pulsedispatch.sender.data.GroupDto>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            val res = repository.getGroups(_uiState.value.config.baseUrl)
+            val g = res.getOrNull()
+            launch(Dispatchers.Main) { onResult(g?.ranked ?: emptyList(), g?.general ?: emptyList()) }
+        }
+    }
+
+    fun fetchMessages(onResult: (List<com.pulsedispatch.sender.data.MessageTemplateDto>, List<com.pulsedispatch.sender.data.MessageTemplateDto>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
+            val res = repository.getMessages(_uiState.value.config.baseUrl)
+            val m = res.getOrNull()
+            launch(Dispatchers.Main) { onResult(m?.manual ?: emptyList(), m?.auto ?: emptyList()) }
+        }
+    }
 }
+

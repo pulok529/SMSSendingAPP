@@ -243,6 +243,42 @@ fun PulseSideMenu(
 
                         SideMenuItem(
                             icon = Icons.Default.Mail,
+                            title = "Dispatch Console",
+                            onClick = {
+                                onNavigate(AppScreen.DISPATCH)
+                                onClose()
+                            }
+                        )
+
+                        SideMenuItem(
+                            icon = Icons.Default.Person,
+                            title = "Phone Directory",
+                            onClick = {
+                                onNavigate(AppScreen.DIRECTORY)
+                                onClose()
+                            }
+                        )
+
+                        SideMenuItem(
+                            icon = Icons.Default.Mail,
+                            title = "Contact Groups",
+                            onClick = {
+                                onNavigate(AppScreen.GROUPS)
+                                onClose()
+                            }
+                        )
+
+                        SideMenuItem(
+                            icon = Icons.Default.Description,
+                            title = "Message Library",
+                            onClick = {
+                                onNavigate(AppScreen.MESSAGES)
+                                onClose()
+                            }
+                        )
+
+                        SideMenuItem(
+                            icon = Icons.Default.Mail,
                             title = "Pulse Sender (Jobs)",
                             badge = if (pendingJobsCount > 0) pendingJobsCount.toString() else null,
                             onClick = {

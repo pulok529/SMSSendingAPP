@@ -473,5 +473,107 @@ class AppRepository(context: Context) {
             "Recent"
         }
     }
+
+    // === Multi-Channel Dispatch & Offline Staging ===
+
+    fun stageOfflineDispatch(dispatch: StagedDispatch) {
+        val current = loadStagedDispatches().toMutableList()
+        current.add(dispatch)
+        prefs.edit().putString("staged_dispatches_json", json.encodeToString(current)).apply()
+    }
+
+    fun loadStagedDispatches(): List<StagedDispatch> {
+        val raw = prefs.getString("staged_dispatches_json", null) ?: return emptyList()
+        return try {
+            json.decodeFromString(raw)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun clearStagedDispatches() {
+        prefs.edit().remove("staged_dispatches_json").apply()
+    }
+
+    suspend fun dispatchBatch(baseUrl: String, req: DispatchBatchRequest): Result<DispatchBatchResponse> {
+        return try {
+            val res = api(baseUrl).dispatchBatch(req)
+            Result.success(res)
+        } catch (e: Exception) {
+            // Stage offline if network failure
+            stageOfflineDispatch(
+                StagedDispatch(
+                    name = req.name,
+                    subject = req.subject,
+                    message = req.message,
+                    recipients = req.recipients,
+                    saveToDirectory = req.saveToDirectory,
+                    scheduledAt = req.scheduledAt
+                )
+            )
+            Result.failure(e)
+        }
+    }
+
+    suspend fun syncOffline(baseUrl: String): Result<OfflineSyncResponse> {
+        val staged = loadStagedDispatches()
+        if (staged.isEmpty()) {
+            return Result.success(OfflineSyncResponse(message = "No offline data to sync."))
+        }
+
+        return try {
+            val res = api(baseUrl).syncOffline(OfflineSyncRequest(stagedDispatches = staged))
+            clearStagedDispatches()
+            Result.success(res)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getDirectory(baseUrl: String): Result<List<ContactDto>> {
+        return try {
+            val res = api(baseUrl).getDirectory()
+            Result.success(res.contacts)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createContact(baseUrl: String, req: CreateContactRequest): Result<CreateContactResponse> {
+        return try {
+            val res = api(baseUrl).createContact(req)
+            Result.success(res)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getGroups(baseUrl: String): Result<GroupsResponse> {
+        return try {
+            val res = api(baseUrl).getGroups()
+            Result.success(res)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getGroupMembers(baseUrl: String, groupId: String): Result<List<ContactDto>> {
+        return try {
+            val res = api(baseUrl).getGroupMembers(groupId)
+            Result.success(res.contacts)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getMessages(baseUrl: String): Result<MessagesResponse> {
+        return try {
+            val res = api(baseUrl).getMessages()
+            Result.success(res)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
+
 

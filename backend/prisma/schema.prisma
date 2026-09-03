@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,11 +13,13 @@ datasource db {
 enum CampaignChannel {
   SMS
   EMAIL
+  BOTH
 }
 
 enum CampaignStatus {
   DRAFT
   QUEUED
+  SCHEDULED
   SENDING
   COMPLETED
 }
@@ -60,13 +60,91 @@ model User {
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  devices      Device[]
-  events       Event[]
-  campaigns    Campaign[]
-  customers    Customer[]
-  templates    Template[]
-  tickets      Ticket[]
-  mobileLogs   MobileLog[]
+
+  devices       Device[]
+  events        Event[]
+  campaigns     Campaign[]
+  customers     Customer[]
+  templates     Template[]
+  tickets       Ticket[]
+  mobileLogs    MobileLog[]
+  emailConfig   EmailConfig?
+  contacts      Contact[]
+  contactGroups ContactGroup[]
+  messages      MessageLibrary[]
+}
+
+model EmailConfig {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider  String   @default("SMTP")
+  host      String   @default("smtp.gmail.com")
+  port      Int      @default(587)
+  secure    Boolean  @default(false)
+  username  String   @default("")
+  password  String   @default("")
+  fromEmail String   @default("")
+  fromName  String?  @default("Pulse Sender")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  contactNo String?
+  email     String?
+  others    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  groupMemberships GroupMember[]
+}
+
+model ContactGroup {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  details   String?
+  code      String?
+  rank      Int?     // null = General, 1..N = Ranked
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members GroupMember[]
+}
+
+model GroupMember {
+  id        String       @id @default(cuid())
+  groupId   String
+  group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([groupId, contactId])
+}
+
+model MessageLibrary {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String?
+  subject     String?
+  body        String
+  channel     CampaignChannel @default(SMS)
+  type        String          @default("AUTO")   // AUTO | MANUAL
+  status      String          @default("ACTIVE") // ACTIVE | DISABLED
+  version     Int             @default(1)
+  fromNumber  String?
+  senderEmail String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
 model Device {
@@ -117,9 +195,9 @@ model Template {
 }
 
 model Event {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   title        String
   date         DateTime
   venue        String
@@ -127,41 +205,47 @@ model Event {
   smsTemplate  String
   emailSubject String
   status       String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   campaigns    Campaign[]
 }
 
 model Campaign {
-  id           String          @id @default(cuid())
-  userId       String
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventId      String?
-  event        Event?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  name         String
-  channel      CampaignChannel
-  audienceSize Int
-  sentCount    Int             @default(0)
-  failedCount  Int             @default(0)
-  status       CampaignStatus  @default(DRAFT)
-  launchedAt   DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  deliveries   Delivery[]
+  id              String          @id @default(cuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId         String?
+  event           Event?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  name            String
+  channel         CampaignChannel
+  emailSubject    String?
+  audienceSize    Int
+  sentCount       Int             @default(0)
+  failedCount     Int             @default(0)
+  status          CampaignStatus  @default(DRAFT)
+  scheduledAt     DateTime?
+  saveToDirectory Boolean         @default(true)
+  launchedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deliveries      Delivery[]
 }
 
 model Delivery {
-  id          String         @id @default(cuid())
-  customerId  String
-  customer    Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  campaignId  String
-  campaign    Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  channel     CampaignChannel
-  status      DeliveryStatus @default(PENDING)
-  detail      String
-  timestamp   DateTime       @default(now())
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id             String          @id @default(cuid())
+  customerId     String
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  campaignId     String
+  campaign       Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  channel        CampaignChannel
+  status         DeliveryStatus  @default(PENDING)
+  recipientPhone String?
+  recipientEmail String?
+  emailSubject   String?
+  detail         String
+  timestamp      DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model Ticket {

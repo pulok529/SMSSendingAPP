@@ -98,6 +98,26 @@ class MainActivity : ComponentActivity() {
                                 onLogin = { email, pass, serverUrl -> viewModel.login(email, pass, serverUrl) }
                             )
 
+                            AppScreen.DISPATCH -> com.pulsedispatch.sender.ui.screens.DispatchScreen(
+                                viewModel = viewModel,
+                                onMenuClick = { viewModel.openSideMenu() }
+                            )
+
+                            AppScreen.DIRECTORY -> com.pulsedispatch.sender.ui.screens.PhoneDirectoryScreen(
+                                viewModel = viewModel,
+                                onMenuClick = { viewModel.openSideMenu() }
+                            )
+
+                            AppScreen.GROUPS -> com.pulsedispatch.sender.ui.screens.GroupManagementScreen(
+                                viewModel = viewModel,
+                                onMenuClick = { viewModel.openSideMenu() }
+                            )
+
+                            AppScreen.MESSAGES -> com.pulsedispatch.sender.ui.screens.MessageLibraryScreen(
+                                viewModel = viewModel,
+                                onMenuClick = { viewModel.openSideMenu() }
+                            )
+
                             AppScreen.DASHBOARD -> DashboardScreen(
                                 isOnline = uiState.isOnline,
                                 isConnecting = uiState.isConnecting,

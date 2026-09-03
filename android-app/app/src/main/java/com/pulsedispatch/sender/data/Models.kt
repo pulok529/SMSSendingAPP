@@ -5,6 +5,10 @@ import kotlinx.serialization.Serializable
 enum class AppScreen {
     LOGIN,
     DASHBOARD,
+    DISPATCH,
+    DIRECTORY,
+    GROUPS,
+    MESSAGES,
     JOBS,
     ACTIVITY_LOG,
     SETTINGS,
@@ -60,9 +64,9 @@ data class SupportTicket(
     val id: String,
     val subject: String,
     val category: String,
-    val priority: String, // Low, Medium, High
+    val priority: String,
     val description: String,
-    val status: String = "OPEN", // OPEN, IN_PROGRESS, CLOSED
+    val status: String = "OPEN",
     val timestamp: String
 )
 
@@ -98,18 +102,27 @@ data class LoginResponse(
 
 @Serializable
 data class ApiErrorResponse(
-    val error: String? = null
+    val error: String? = null,
+    val message: String? = null
 )
 
 @Serializable
 data class UserDto(
-    val id: String,
-    val name: String,
-    val email: String,
-    val role: String,
+    val id: String = "",
+    val name: String = "",
+    val email: String = "",
+    val role: String = "CLIENT",
     val company: String? = null,
-    val isActive: Boolean? = true,
-    val phone: String? = null
+    val phone: String? = null,
+    val dateOfBirth: String? = null,
+    val gender: String? = null,
+    val address: String? = null,
+    val isActive: Boolean = true
+)
+
+@Serializable
+data class ProfileResponse(
+    val user: UserDto
 )
 
 @Serializable
@@ -123,16 +136,21 @@ data class RegisterRequest(
 
 @Serializable
 data class RegisterResponse(
-    val device: MobileDeviceDto
+    val ok: Boolean = true,
+    val device: DeviceDto
 )
 
 @Serializable
-data class MobileDeviceDto(
+data class DeviceDto(
     val id: String,
+    val userId: String,
     val deviceName: String,
     val phoneNumber: String,
     val operator: String,
-    val status: String
+    val status: String,
+    val queuedJobs: Int = 0,
+    val battery: String? = null,
+    val lastSeenAt: String? = null
 )
 
 @Serializable
@@ -143,23 +161,28 @@ data class HeartbeatRequest(
 
 @Serializable
 data class HeartbeatResponse(
-    val ok: Boolean = true
+    val ok: Boolean = true,
+    val device: DeviceDto? = null
 )
 
 @Serializable
 data class JobsResponse(
-    val jobs: List<SmsJobDto>
+    val count: Int = 0,
+    val jobs: List<SmsJobDto> = emptyList()
 )
 
 @Serializable
 data class SmsJobDto(
-    val id: String,
-    val phoneNumber: String? = null,
-    val customerName: String,
-    val campaignName: String,
-    val message: String,
-    val status: String
+    val id: String = "",
+    val phoneNumber: String = "",
+    val message: String = "",
+    val createdAt: String = "",
+    val customerName: String? = null,
+    val campaignName: String? = null,
+    val status: String = "PENDING"
 )
+
+typealias PendingJobDto = SmsJobDto
 
 @Serializable
 data class JobResultRequest(
@@ -169,33 +192,22 @@ data class JobResultRequest(
 
 @Serializable
 data class JobResultResponse(
-    val ok: Boolean = true
+    val ok: Boolean = true,
+    val delivery: DeliveryDto? = null
 )
 
 @Serializable
-data class UserProfileDto(
+data class DeliveryDto(
     val id: String,
-    val name: String,
-    val email: String,
-    val role: String,
-    val company: String? = null,
-    val isActive: Boolean? = true,
-    val phone: String? = null,
-    val dateOfBirth: String? = null,
-    val gender: String? = null,
-    val address: String? = null,
-    val createdAt: String? = null
-)
-
-@Serializable
-data class ProfileResponse(
-    val user: UserProfileDto? = null,
-    val ok: Boolean? = true
+    val status: String,
+    val detail: String,
+    val timestamp: String? = null
 )
 
 @Serializable
 data class UpdateProfileRequest(
-    val name: String? = null,
+    val name: String,
+    val company: String? = null,
     val phone: String? = null,
     val dateOfBirth: String? = null,
     val gender: String? = null,
@@ -272,4 +284,130 @@ data class SendLogRequest(
     val title: String,
     val detail: String,
     val deviceId: String? = null
+)
+
+// === NEW MULTI-CHANNEL DISPATCH & DIRECTORY MODELS ===
+
+@Serializable
+data class ContactDto(
+    val id: String = "",
+    val name: String = "",
+    val contactNo: String? = null,
+    val email: String? = null,
+    val others: String? = null,
+    val createdAt: String? = null
+)
+
+@Serializable
+data class DirectoryResponse(
+    val contacts: List<ContactDto> = emptyList()
+)
+
+@Serializable
+data class CreateContactRequest(
+    val name: String,
+    val contactNo: String? = null,
+    val email: String? = null,
+    val others: String? = null
+)
+
+@Serializable
+data class CreateContactResponse(
+    val ok: Boolean = true,
+    val contact: ContactDto? = null,
+    val alreadyExisted: Boolean = false
+)
+
+@Serializable
+data class GroupDto(
+    val id: String = "",
+    val name: String = "",
+    val details: String? = null,
+    val code: String? = null,
+    val rank: Int? = null
+)
+
+@Serializable
+data class GroupsResponse(
+    val ranked: List<GroupDto> = emptyList(),
+    val general: List<GroupDto> = emptyList(),
+    val all: List<GroupDto> = emptyList()
+)
+
+@Serializable
+data class GroupMembersResponse(
+    val contacts: List<ContactDto> = emptyList(),
+    val total: Int = 0
+)
+
+@Serializable
+data class MessageTemplateDto(
+    val id: String = "",
+    val title: String? = null,
+    val subject: String? = null,
+    val body: String = "",
+    val channel: String = "SMS",
+    val type: String = "MANUAL",
+    val version: Int = 1,
+    val createdAt: String? = null
+)
+
+@Serializable
+data class MessagesResponse(
+    val auto: List<MessageTemplateDto> = emptyList(),
+    val manual: List<MessageTemplateDto> = emptyList()
+)
+
+@Serializable
+data class DispatchRecipientDto(
+    val name: String = "Valued Contact",
+    val phone: String? = null,
+    val email: String? = null,
+    val company: String? = null,
+    val sendSms: Boolean = true,
+    val sendEmail: Boolean = false
+)
+
+@Serializable
+data class DispatchBatchRequest(
+    val name: String? = null,
+    val subject: String? = null,
+    val message: String,
+    val recipients: List<DispatchRecipientDto>,
+    val saveToDirectory: Boolean = true,
+    val scheduledAt: String? = null
+)
+
+@Serializable
+data class DispatchBatchResponse(
+    val ok: Boolean = true,
+    val campaignId: String? = null,
+    val queuedCount: Int = 0,
+    val smsCount: Int = 0,
+    val emailCount: Int = 0,
+    val message: String? = null
+)
+
+@Serializable
+data class StagedDispatch(
+    val name: String? = null,
+    val subject: String? = null,
+    val message: String,
+    val recipients: List<DispatchRecipientDto>,
+    val saveToDirectory: Boolean = true,
+    val scheduledAt: String? = null
+)
+
+@Serializable
+data class OfflineSyncRequest(
+    val stagedDispatches: List<StagedDispatch> = emptyList(),
+    val stagedContacts: List<ContactDto> = emptyList()
+)
+
+@Serializable
+data class OfflineSyncResponse(
+    val ok: Boolean = true,
+    val syncedContactsCount: Int = 0,
+    val syncedDispatchesCount: Int = 0,
+    val message: String? = null
 )

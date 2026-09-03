@@ -3,6 +3,11 @@ import type { NextRequest } from "next/server";
 
 const protectedRoutes = [
   "/dashboard",
+  "/dispatch",
+  "/directory",
+  "/groups",
+  "/messages",
+  "/email-settings",
   "/quick-send",
   "/users",
   "/imports",
